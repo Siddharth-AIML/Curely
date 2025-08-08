@@ -14,14 +14,33 @@ router.post("/signup/customer", async (req, res) => {
         let user = await Customer.findOne({ email });
         if (user) return res.status(400).json({ msg: "Customer already exists" });
 
+        // Generate unique 6-digit med_id
+        let med_id;
+        let isUnique = false;
+        while (!isUnique) {
+            med_id = Math.floor(100000 + Math.random() * 900000).toString();
+            const existing = await Customer.findOne({ med_id });
+            if (!existing) isUnique = true;
+        }
+
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Create customer
-        user = new Customer({ name, age, gender, email, password: hashedPassword });
+        // Create customer with med_id
+        user = new Customer({ 
+            name, 
+            age, 
+            gender, 
+            email, 
+            password: hashedPassword, 
+            med_id 
+        });
         await user.save();
 
-        res.status(201).json({ msg: "Customer registered successfully" });
+        res.status(201).json({ 
+            msg: "Customer registered successfully", 
+            med_id: med_id 
+        });
     } catch (err) {
         console.error(err);
         res.status(500).json({ msg: "Server Error", error: err.message });
@@ -82,10 +101,17 @@ router.post("/login", async (req, res) => {
             { expiresIn: "7d" }
         );
 
-        res.json({
+        // Include med_id in response for customers
+        const response = {
             token,
             verification: user.verification || false
-        });
+        };
+
+        if (role === "customer" && user.med_id) {
+            response.med_id = user.med_id;
+        }
+
+        res.json(response);
 
     } catch (err) {
         console.error(err);

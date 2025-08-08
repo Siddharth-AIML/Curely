@@ -36,6 +36,7 @@ export default function CustomerDashboard() {
                 <div>
                     <p>Name: {profile.name}</p>
                     <p>Email: {profile.email}</p>
+                    <p>Med_ID: {profile.med_id}</p>
                 </div>
             )}
         </div>

@@ -22,13 +22,11 @@ export default function LoginPage() {
                 // Save token
                 localStorage.setItem("token", data.token);
 
-                // Doctor check
-                if(role === "customer"){
-                    window.location.href = "/dashboard/customer"
-                }
-                if (role === "doctor" && !data.verification) {
+                if (role === "customer") {
+                    window.location.href = "/dashboard/customer";
+                } else if (role === "doctor" && !data.verification) {
                     window.location.href = "/pending-approval";
-                } else {
+                } else if (role === "doctor") {
                     window.location.href = "/dashboard/doctor";
                 }
             } else {
