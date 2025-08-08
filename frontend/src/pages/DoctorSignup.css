@@ -1,11 +1,11 @@
-
 .doctor-signup-container {
   max-width: 900px;
   padding: 2.5rem 3rem;
+  background-color: var(--bg-secondary);
 }
 
 .auth-subtitle {
-  color: #64748b;
+  color: var(--text-medium);
   margin-top: -0.5rem;
   margin-bottom: 1.5rem;
 }
@@ -13,12 +13,12 @@
 .form-section {
   margin-bottom: 2rem;
   padding-bottom: 1.5rem;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--ash-gray);
 }
 
 .form-section h3 {
   font-size: 1.2rem;
-  color: #1565c0;
+  color: var(--chinese-violet);
   margin-bottom: 1.2rem;
 }
 
@@ -37,7 +37,7 @@
   display: block;
   margin-bottom: 0.5rem;
   font-weight: 500;
-  color: #334155;
+  color: var(--text-medium);
 }
 
 .form-group input,
@@ -45,7 +45,7 @@
 .form-group textarea {
   width: 100%;
   padding: 0.8rem 1rem;
-  border: 1px solid #e0e7ff;
+  border: 1px solid var(--ash-gray);
   border-radius: 8px;
   background: #f8faff;
   transition: all 0.25s ease;
@@ -60,10 +60,10 @@
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus {
-  border-color: #1976d2;
+  border-color: var(--chinese-violet);
   outline: none;
   background: #f0f7ff;
-  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+  box-shadow: 0 0 0 3px rgba(115, 99, 114, 0.1);
 }
 
 .consent-container {
@@ -73,7 +73,7 @@
 .submit-button {
   width: 100%;
   padding: 1rem;
-  background: linear-gradient(135deg, #1976d2 0%, #42a5f5 100%);
+  background: var(--chinese-violet);
   color: white;
   border: none;
   border-radius: 8px;
@@ -84,9 +84,9 @@
 }
 
 .submit-button:hover {
-  background: linear-gradient(135deg, #1565c0 0%, #1976d2 100%);
+  background: var(--button-hover);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(25, 118, 210, 0.15);
+  box-shadow: 0 4px 12px rgba(115, 99, 114, 0.15);
 }
 
 @media (max-width: 768px) {

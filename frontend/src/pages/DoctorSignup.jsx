@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import './Auth.css';
 import './DoctorSignup.css';
 
 export default function DoctorSignup() {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -18,17 +19,19 @@ export default function DoctorSignup() {
     state: '',
     city: '',
     pincode: '',
+    clinic_name:'',
     address: '',
   });
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (formData.password !== formData.confirmPassword) {
@@ -40,10 +43,33 @@ export default function DoctorSignup() {
       setError("You must give consent to proceed");
       return;
     }
-    
-    // Form is valid, proceed with submission
-    console.log("Form submitted:", formData);
-    // Here you would typically make an API call to register the doctor
+
+    setError('');
+    setLoading(true);
+
+    try {
+      const res = await fetch("http://localhost:3001/api/auth/signup/doctor", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(formData)
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.msg || "Signup failed");
+      }
+
+      // After signup, redirect doctor to pending approval screen
+      navigate("/pending-approval");
+
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -52,6 +78,7 @@ export default function DoctorSignup() {
       <p className="auth-subtitle">Join our healthcare provider network</p>
       
       <form onSubmit={handleSubmit} className="auth-form">
+        {/* --- Personal Information Section --- */}
         <div className="form-section">
           <h3>Personal Information</h3>
           <div className="form-row">
@@ -136,6 +163,7 @@ export default function DoctorSignup() {
           </div>
         </div>
 
+        {/* --- Professional Details --- */}
         <div className="form-section">
           <h3>Professional Details</h3>
           <div className="form-row">
@@ -180,7 +208,6 @@ export default function DoctorSignup() {
           </div>
 
           <div className="form-row">
-            
             <div className="form-group">
               <label htmlFor="fee">Consultation Fee (₹)</label>
               <input
@@ -195,10 +222,9 @@ export default function DoctorSignup() {
               />
             </div>
           </div>
-
-          
         </div>
 
+        {/* --- Location Details --- */}
         <div className="form-section">
           <h3>Location Details</h3>
           <div className="form-row">
@@ -253,8 +279,20 @@ export default function DoctorSignup() {
                 required
               />
             </div>
+            
           </div>
-
+          <div className="form-group">
+              <label htmlFor="clinic_name">Clinic Name</label>
+              <input
+                type="text"
+                id="clinicName"
+                name="clinic_name"
+                value={formData.clinic_name}
+                onChange={handleChange}
+                placeholder="Curely"
+                required
+              />
+            </div>
           <div className="form-group">
             <label htmlFor="address">Full Address</label>
             <textarea
@@ -283,7 +321,9 @@ export default function DoctorSignup() {
 
         {error && <div className="form-error">{error}</div>}
 
-        <button type="submit" className="submit-button">Create Doctor Account</button>
+        <button type="submit" className="submit-button" disabled={loading}>
+          {loading ? "Creating Account..." : "Create Doctor Account"}
+        </button>
         
         <p className="auth-link">
           Already have an account? <Link to="/login">Login</Link>

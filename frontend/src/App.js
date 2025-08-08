@@ -6,7 +6,9 @@ import SignupPage from './pages/SignupPage';
 import './App.css';
 import CustomerSignup from './pages/CustomerSignup';
 import DoctorSignup from './pages/DoctorSignup';
-
+import CustomerDashboard from './pages/CustomerDashboard';
+import DoctorDashboard from './pages/DoctorDashboard';
+import PendingApproval from './pages/PendingApproval';
 
 
 function App() {
@@ -18,6 +20,9 @@ function App() {
         <Route path="/signup" element={<SignupPage/>}/>
         <Route path="/signup/customer" element={<CustomerSignup/>}/>
         <Route path="/signup/doctor" element={<DoctorSignup/>}/>
+        <Route path="/dashboard/customer" element={<CustomerDashboard/>}/>
+        <Route path="/dashboard/doctor" element={<DoctorDashboard/>}/>
+        <Route path="/pending-approval" element={<PendingApproval/>}/>
       </Routes>
     </Router>
   );

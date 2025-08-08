@@ -1,18 +1,18 @@
-
 :root {
-  --primary-color: #1976d2;
-  --primary-dark: #1565c0;
-  --primary-light: #42a5f5;
-  --accent-color: #2dd4bf;
-  --text-dark: #333333;
-  --text-light: #6b7280;
+  --primary-color: #736372;
+  --primary-dark: #635363;
+  --primary-light: #8c798b;
+  --accent-color: #a18276;
+  --text-dark: #39383a;
+  --text-light: #666666;
   --text-white: #ffffff;
-  --bg-light: #f8fafc;
+  --bg-light: #dceed1;
   --bg-white: #ffffff;
   --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
   --border-radius: 8px;
+  --border-color: #aac0aa;
 }
 
 * {
@@ -61,7 +61,7 @@ h2::after {
   left: 0;
   width: 60px;
   height: 4px;
-  background: linear-gradient(90deg, var(--primary-color), var(--primary-light));
+  background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
   border-radius: 4px;
 }
 
@@ -94,14 +94,13 @@ section {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
+  background: var(--primary-color);
   color: var(--text-white);
   box-shadow: var(--shadow-md);
 }
 
 .btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
+  background: var(--primary-dark);
 }
 
 .btn-secondary {
@@ -165,6 +164,13 @@ section {
 .nav a:hover {
   color: var(--primary-color);
 }
+.auth-buttons .btn-filled:hover {
+  color: var(--text-white);
+}
+.auth-buttons .btn-outline:hover{
+  background-color: var(--primary-color);
+  color: var(--text-white);
+}
 
 .auth-buttons {
   display: flex;
@@ -173,7 +179,7 @@ section {
 
 /* Hero Section */
 .hero {
-  background: linear-gradient(120deg, #f0f7ff 0%, #ffffff 100%);
+  background: linear-gradient(120deg, var(--bg-light) 0%, var(--bg-white) 100%);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -212,6 +218,7 @@ section {
 .feature-card {
   background: var(--bg-white);
   padding: 2rem;
+  border: 1px solid var(--border-color);
   border-radius: var(--border-radius);
   box-shadow: var(--shadow-sm);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
@@ -230,7 +237,7 @@ section {
 
 /* Security Section */
 .security {
-  background-color: #f0f7ff;
+  background-color: #e8f4e2;
 }
 
 .security-content {
@@ -251,6 +258,7 @@ section {
 
 .security-item {
   background: var(--bg-white);
+  border: 1px solid var(--border-color);
   padding: 2rem;
   border-radius: var(--border-radius);
   box-shadow: var(--shadow-sm);
@@ -271,6 +279,7 @@ section {
 
 .centralization-item {
   padding: 1.5rem;
+  border: 1px solid var(--border-color);
   border-radius: var(--border-radius);
   background: #f8fafc;
   box-shadow: var(--shadow-sm);
@@ -283,7 +292,7 @@ section {
 
 /* Testimonials */
 .testimonials {
-  background: linear-gradient(120deg, #e0f2fe 0%, #f0f9ff 100%);
+  background: linear-gradient(120deg, #e8f4e2 0%, var(--bg-light) 100%);
   text-align: center;
 }
 
@@ -314,7 +323,7 @@ section {
 
 /* CTA Section */
 .cta {
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
   color: var(--text-white);
   text-align: center;
   padding: 4rem 2rem;
@@ -340,7 +349,7 @@ section {
 
 /* Footer */
 .footer {
-  background: #1e293b;
+  background: #4f4a4e;
   color: #e2e8f0;
   padding: 4rem 2rem 2rem;
 }
