@@ -84,7 +84,7 @@ export default function DoctorDashboard() {
           }}
         >
           <div>
-            <strong>Clinic:</strong> {doctorData.clinicName}
+            <strong>Clinic:</strong> {doctorData.clinic_name}
           </div>
           <div>
             <strong>Experience:</strong> {doctorData.experience} years
@@ -92,9 +92,7 @@ export default function DoctorDashboard() {
           <div>
             <strong>Consultation Fee:</strong> ₹{doctorData.fee}
           </div>
-          <div>
-            <strong>Working Hours:</strong> {doctorData.workingHours}
-          </div>
+          
           <div>
             <strong>Location:</strong> {doctorData.address}, {doctorData.city}, {doctorData.state}, {doctorData.country} - {doctorData.pincode}
           </div>
