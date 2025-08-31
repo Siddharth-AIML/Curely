@@ -15,14 +15,14 @@ const Sidebar = ({ activeItem }) => {
       </div>
       <nav className="sidebar-nav">
         <a 
-          href="/customer-dashboard" 
+          href="/dashboard/customer" 
           className={`nav-item ${activeItem === 'dashboard' ? 'active' : ''}`}
         >
-          <span className="nav-icon">🏠</span>
+          <span className="nav-icon">📊</span>
           Dashboard
         </a>
         <a 
-          href="/customer-appointment" 
+          href="/customer/appointments" 
           className={`nav-item ${activeItem === 'appointment' ? 'active' : ''}`}
         >
           <span className="nav-icon">📅</span>
