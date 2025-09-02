@@ -56,7 +56,7 @@ function DoctorSidebar({ activeItem, userProfile }) {
 
       <nav className="flex-1">
         <SidebarItem icon={<LayoutDashboard size={20} />} text="Dashboard" active={activeItem === 'dashboard'} onClick={() => handleNavigation('/dashboard/doctor')} />
-        <SidebarItem icon={<Calendar size={20} />} text="Appointments" active={activeItem === 'schedule'} onClick={() => console.log("Navigate to Schedule")} />
+        <SidebarItem icon={<Calendar size={20} />} text="Appointments" active={activeItem === 'schedule'} onClick={() => handleNavigation('/doctor/appointments') }/>
         <SidebarItem icon={<Users size={20} />} text="Prescriptions" active={activeItem === 'patients'} onClick={() => console.log("Navigate to Patients")} />
         <SidebarItem icon={<MessageSquare size={20} />} text="Reports" active={activeItem === 'messages'} onClick={() => console.log("Navigate to Messages")} />
       </nav>

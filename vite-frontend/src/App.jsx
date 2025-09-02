@@ -9,6 +9,7 @@ import CustomerDashboard from './pages/CustomerDashboard';
 import CustomerAppointments from './pages/CustomerAppointment';
 import PendingApproval from './pages/PendingApproval';
 import DoctorDashboard from './pages/DoctorDashboard';
+import DoctorAppointments from './pages/DoctorAppointments';
 export default function App() {
   return (
     <BrowserRouter>
@@ -22,6 +23,7 @@ export default function App() {
         <Route path="/customer/appointments" element={<CustomerAppointments/>}/>
         <Route path="/pending-approval" element={<PendingApproval/>}/>
         <Route path="/dashboard/doctor" element={<DoctorDashboard/>}/>
+        <Route path="/doctor/appointments" element={<DoctorAppointments/>}/>
 
       </Routes>
     </BrowserRouter>
