@@ -1,61 +1,51 @@
-const express = require("express");
-const Doctor = require("../models/doctor"); // your Doctor schema
-const auth = require("../middleware/authMiddleware");
+const express = require('express');
 const router = express.Router();
+const { protect, isDoctor } = require('../middleware/authMiddleware');
+const Doctor = require('../models/doctor');
+const Customer = require('../models/customer');
 
-// Protected route - Get doctor profile
-router.get("/profile", auth, async (req, res) => {
+/**
+ * @route   GET /api/doctor/profile
+ * @desc    Get logged-in doctor's profile
+ * @access  Private (Doctor)
+ */
+router.get('/profile', protect, isDoctor, async (req, res) => {
     try {
-        // Only allow if role is doctor
-        if (req.user.role !== "doctor") {
-            return res.status(403).json({ msg: "Access denied" });
-        }
-
-        const doctor = await Doctor.findById(req.user.id).select("-password");
+        const doctor = await Doctor.findById(req.user.id).select('-password');
         if (!doctor) {
-            return res.status(404).json({ msg: "Doctor not found" });
+            return res.status(404).json({ msg: 'Doctor profile not found' });
         }
-
         res.json(doctor);
     } catch (err) {
-        console.error(err);
-        res.status(500).send("Server Error");
+        console.error(err.message);
+        res.status(500).send('Server Error');
     }
 });
 
-// Public route - Get all approved doctors (for appointment booking)
-router.get("/get-doctor", async (req, res) => {
+/**
+ * @route   GET /api/doctor/customer/:medId
+ * @desc    Find a customer by their Medical ID
+ * @access  Private (Doctor)
+ */
+router.get('/customer/:medId', protect, isDoctor, async (req, res) => {
     try {
-        // Get all doctors with verification = true and exclude sensitive data
-        const doctors = await Doctor.find({ 
-            
-        }).select("-password");
+        const medId = req.params.medId;
+        console.log(`Searching for customer with med_id: ${medId}`); // <-- Added for debugging
 
-        if (!doctors || doctors.length === 0) {
-            return res.status(404).json({ msg: "No approved doctors found" });
-        }
-
-        res.json(doctors);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ msg: "Server Error" });
-    }
-});
-
-// Alternative route - Get all doctors (protected)
-router.get("/all", auth, async (req, res) => {
-    try {
-        const doctors = await Doctor.find().select("-password");
+        const customer = await Customer.findOne({ med_id: medId }).select('-password');
         
-        if (!doctors || doctors.length === 0) {
-            return res.status(404).json({ msg: "No doctors found" });
+        if (!customer) {
+            console.log(`Customer with med_id: ${medId} NOT FOUND.`); // <-- Added for debugging
+            return res.status(404).json({ msg: 'Patient with this Medical ID not found' });
         }
-
-        res.json(doctors);
+        
+        console.log(`Customer found: ${customer.name}`); // <-- Added for debugging
+        res.json(customer);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ msg: "Server Error" });
+        console.error(err.message);
+        res.status(500).send('Server Error');
     }
 });
 
 module.exports = router;
+

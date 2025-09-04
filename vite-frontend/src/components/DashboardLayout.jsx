@@ -7,7 +7,8 @@ import {
   MessageSquare, 
   Settings, 
   LogOut, 
-  HeartPulse 
+  HeartPulse,
+  Pill
 } from 'lucide-react';
 
 // --- Reusable Sidebar Item ---
@@ -79,16 +80,16 @@ function Sidebar({ activeItem = 'dashboard', userProfile }) {
           onClick={() => handleNavigation('/customer/appointments')}
         />
         <SidebarItem
-          icon={<FileText size={20} />}
-          text="Health Records"
-          active={activeItem === 'records'}
-          onClick={() => console.log("Navigate to records")}
+          icon={<Pill size={20} />}
+          text="Prescriptions"
+          active={activeItem === 'prescriptions'}
+          onClick={() => handleNavigation("/customer/prescriptions")}
         />
         <SidebarItem
-          icon={<MessageSquare size={20} />}
-          text="Messages"
-          active={activeItem === 'messages'}
-          onClick={() => console.log("Navigate to messages")}
+          icon={<FileText size={20} />}
+          text="Reports"
+          active={activeItem === 'reports'}
+          onClick={() => handleNavigation("/customer/reports")}
         />
       </nav>
 

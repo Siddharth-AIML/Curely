@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    LayoutDashboard, Calendar, Users, MessageSquare, Settings, LogOut, HeartPulse
+    LayoutDashboard, Calendar, Users, MessageSquare, Settings, LogOut, HeartPulse, FileText, Pill
 } from 'lucide-react';
 
 // SidebarItem can remain in this file as it's only used by the Sidebar
@@ -56,9 +56,9 @@ function DoctorSidebar({ activeItem, userProfile }) {
 
       <nav className="flex-1">
         <SidebarItem icon={<LayoutDashboard size={20} />} text="Dashboard" active={activeItem === 'dashboard'} onClick={() => handleNavigation('/dashboard/doctor')} />
-        <SidebarItem icon={<Calendar size={20} />} text="Appointments" active={activeItem === 'schedule'} onClick={() => handleNavigation('/doctor/appointments') }/>
-        <SidebarItem icon={<Users size={20} />} text="Prescriptions" active={activeItem === 'patients'} onClick={() => console.log("Navigate to Patients")} />
-        <SidebarItem icon={<MessageSquare size={20} />} text="Reports" active={activeItem === 'messages'} onClick={() => console.log("Navigate to Messages")} />
+        <SidebarItem icon={<Calendar size={20} />} text="Appointments" active={activeItem === 'schedule'} onClick={() => handleNavigation('/doctor/appointments')} />
+        <SidebarItem icon={<Pill size={20} />} text="Prescriptions" active={activeItem === 'prescriptions'} onClick={() => handleNavigation('/doctor/prescriptions')} />
+        <SidebarItem icon={<FileText size={20} />} text="Reports" active={activeItem === 'reports'} onClick={() => handleNavigation('/doctor/reports')} />
       </nav>
 
       <div>
