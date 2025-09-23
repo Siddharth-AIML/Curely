@@ -27,16 +27,13 @@ router.get('/profile', protect, isCustomer, async (req, res) => {
  * @desc    Get all verified doctors for customers to view
  * @access  Private (Customer)
  */
-router.get('/doctors', protect, isCustomer, async (req, res) => {
+router.get('/doctors', protect, async (req, res) => {
     try {
-        // Find doctors who are verified and select only public-facing information
-        const doctors = await Doctor.find({ isVerified: true }).select(
-            'name specialization experience fee clinic_name city'
-        );
-        res.json(doctors);
+        const doctors = await Doctor.find({ isVerified: true }).select('-password');
+        res.json({ data: doctors });
     } catch (err) {
         console.error(err.message);
-        res.status(500).send('Server Error');
+        res.status(500).json({ msg: 'Server Error' });
     }
 });
 

@@ -47,5 +47,27 @@ router.get('/customer/:medId', protect, isDoctor, async (req, res) => {
     }
 });
 
-module.exports = router;
+/**
+ * @route   GET /api/doctor/all
+ * @desc    Get all verified doctors
+ * @access  Public
+ */
+router.get('/all', async (req, res) => {
+    try {
+        // Check all doctors first
+        const allDoctors = await Doctor.find({}).select('-password');
+        console.log('Total doctors in database:', allDoctors.length);
+        console.log('All doctors:', allDoctors.map(d => ({ name: d.name, verification: d.verification })));
 
+        // Then check verified doctors
+        const doctors = await Doctor.find({ verification: true }).select('-password');
+        console.log('Verified doctors:', doctors.length);
+        
+        res.json({ data: doctors });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ msg: 'Server Error' });
+    }
+});
+
+module.exports = router;

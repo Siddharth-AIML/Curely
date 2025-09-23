@@ -5,72 +5,92 @@ const Prescription = require("../models/prescription");
 const Report = require("../models/report");
 const Customer = require("../models/customer");
 
-// @route   POST api/medical/prescriptions
-// @desc    Create a new prescription
+// @route   POST /api/medical/prescriptions
+// @desc    Create a new prescription for a patient
+// @access  Private (Doctor only)
 router.post("/prescriptions", protect, isDoctor, async (req, res) => {
-    // FIXED: Changed to expect 'medicines' to match the frontend form and database
+    console.log("Received request to create prescription. Body:", req.body);
     const { medId, medicines, notes } = req.body;
 
-    if (!medId || !medicines || medicines.length === 0) {
-        return res.status(400).json({ msg: "Please provide patient medId and at least one medicine." });
+    if (!medId) {
+        return res.status(400).json({ msg: "medId is missing from the request." });
+    }
+    if (!medicines || !Array.isArray(medicines) || medicines.length === 0) {
+        return res.status(400).json({ msg: "Please provide at least one medicine." });
     }
 
     try {
         const patient = await Customer.findOne({ med_id: medId });
         if (!patient) {
-            return res.status(404).json({ msg: "Patient with this med_id not found." });
+            return res.status(404).json({ msg: `Patient with medId ${medId} not found.` });
         }
 
         const newPrescription = new Prescription({
             doctorId: req.user.id,
             patientId: patient._id,
             med_id: medId,
-            // FIXED: Changed to save 'medicines'
             medicines,
             notes
         });
 
         const prescription = await newPrescription.save();
+        console.log("Successfully created prescription:", prescription._id);
         res.status(201).json(prescription);
 
     } catch (err) {
-        console.error(err.message);
+        console.error("Error creating prescription:", err.message);
         res.status(500).send("Server Error");
     }
 });
 
-// @route   POST api/medical/reports
-// @desc    Create a new medical report
+// @route   POST /api/medical/reports
+// @desc    Create a new medical report for a patient
+// @access  Private (Doctor only)
 router.post("/reports", protect, isDoctor, async (req, res) => {
-    const { medId, title, findings, recommendations } = req.body;
-    if (!medId || !title || !findings) {
-        return res.status(400).json({ msg: "Please provide patient medId, a title, and findings." });
+    console.log("Received request to create report. Body:", req.body);
+    const { medId, title, summary, fileUrl } = req.body;
+
+    if (!medId) {
+        return res.status(400).json({ msg: "medId is missing from the request." });
     }
+    if (!title || !summary) {
+        return res.status(400).json({ msg: "Please provide a title and a summary." });
+    }
+
     try {
         const patient = await Customer.findOne({ med_id: medId });
         if (!patient) {
-            return res.status(404).json({ msg: "Patient with this med_id not found." });
+            return res.status(404).json({ msg: `Patient with medId ${medId} not found.` });
         }
+
         const newReport = new Report({
             doctorId: req.user.id,
             patientId: patient._id,
             med_id: medId,
             title,
-            findings,
-            recommendations
+            summary,
+            fileUrl
         });
+
         const report = await newReport.save();
+        console.log("Successfully created report:", report._id);
         res.status(201).json(report);
+
     } catch (err) {
-        console.error(err.message);
+        console.error("Error creating report:", err.message);
         res.status(500).send("Server Error");
     }
 });
 
-// Get all prescriptions for a patient by med_id
+
+// --- GET ROUTES ---
+
+// @route   GET /api/medical/prescriptions/:medId
 router.get("/prescriptions/:medId", protect, isDoctor, async (req, res) => {
     try {
-        const prescriptions = await Prescription.find({ med_id: req.params.medId }).populate('doctorId', 'name');
+        const patient = await Customer.findOne({ med_id: req.params.medId });
+        if (!patient) { return res.status(404).json({ msg: "Patient not found" }); }
+        const prescriptions = await Prescription.find({ patientId: patient._id }).populate('doctorId', 'name').sort({ date: -1 });
         res.json(prescriptions);
     } catch (err) {
         console.error(err.message);
@@ -78,10 +98,12 @@ router.get("/prescriptions/:medId", protect, isDoctor, async (req, res) => {
     }
 });
 
-// Get all reports for a patient by med_id
+// @route   GET /api/medical/reports/:medId
 router.get("/reports/:medId", protect, isDoctor, async (req, res) => {
     try {
-        const reports = await Report.find({ med_id: req.params.medId }).populate('doctorId', 'name');
+        const patient = await Customer.findOne({ med_id: req.params.medId });
+        if (!patient) { return res.status(404).json({ msg: "Patient not found" }); }
+        const reports = await Report.find({ patientId: patient._id }).populate('doctorId', 'name').sort({ date: -1 });
         res.json(reports);
     } catch (err) {
         console.error(err.message);
@@ -89,10 +111,10 @@ router.get("/reports/:medId", protect, isDoctor, async (req, res) => {
     }
 });
 
-// Get all prescriptions for the logged-in customer
+// @route   GET /api/medical/customer-prescriptions
 router.get("/customer-prescriptions", protect, isCustomer, async (req, res) => {
     try {
-        const prescriptions = await Prescription.find({ patientId: req.user.id }).populate('doctorId', 'name');
+        const prescriptions = await Prescription.find({ patientId: req.user.id }).populate('doctorId', 'name').sort({ date: -1 });
         res.json(prescriptions);
     } catch (err) {
         console.error(err.message);
@@ -100,10 +122,10 @@ router.get("/customer-prescriptions", protect, isCustomer, async (req, res) => {
     }
 });
 
-// Get all reports for the logged-in customer
+// @route   GET /api/medical/customer-reports
 router.get("/customer-reports", protect, isCustomer, async (req, res) => {
     try {
-        const reports = await Report.find({ patientId: req.user.id }).populate('doctorId', 'name');
+        const reports = await Report.find({ patientId: req.user.id }).populate('doctorId', 'name').sort({ date: -1 });
         res.json(reports);
     } catch (err) {
         console.error(err.message);

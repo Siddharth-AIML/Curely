@@ -5,20 +5,8 @@ import DoctorDashboardLayout from '/src/components/DoctorDashboardLayout.jsx';
 import { getDoctorAppointments, updateAppointmentStatus, getDoctorProfile } from '/src/services/api.js';
 import { format } from 'date-fns';
 
-// Reusable Tab Button
-const TabButton = ({ active, onClick, children }) => (
-    <button
-        onClick={onClick}
-        className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all
-        ${active ? 'bg-emerald-600 text-white shadow' : 'text-slate-600 hover:bg-slate-200'}`}
-    >
-        {children}
-    </button>
-);
-
-// Main Component
 export default function DoctorAppointments() {
-    const [activeTab, setActiveTab] = useState('Upcoming');
+    const [activeTab, setActiveTab] = useState('Requests');
     const [appointments, setAppointments] = useState([]);
     const [doctorProfile, setDoctorProfile] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -36,11 +24,8 @@ export default function DoctorAppointments() {
             setAppointments(appointmentsRes.data);
             setDoctorProfile(profileRes.data);
         } catch (err) {
-            console.error("Error fetching data:", err);
-            setError('Failed to load appointment data. Please try again.');
-            if (err.response && err.response.status === 401) {
-                navigate('/login');
-            }
+            setError('Failed to load appointment data.');
+            if (err.response?.status === 401) navigate('/login');
         } finally {
             setLoading(false);
         }
@@ -53,38 +38,37 @@ export default function DoctorAppointments() {
     const handleStatusUpdate = async (id, status) => {
         try {
             await updateAppointmentStatus(id, status);
-            fetchAllData(); // Re-fetch data to reflect the change
+            fetchAllData(); 
         } catch (err) {
-            console.error("Failed to update status:", err);
             setError('Could not update appointment status.');
         }
     };
 
     const filteredAppointments = useMemo(() => {
         const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         switch (activeTab) {
             case 'Upcoming':
-                return appointments.filter(a => a.status === 'confirmed' && new Date(a.appointment_date) >= now);
+                return appointments.filter(a => a.status === 'confirmed' && new Date(a.appointment_date) >= today);
             case 'Past':
-                return appointments.filter(a => a.status === 'completed' || (a.status === 'confirmed' && new Date(a.appointment_date) < now));
+                return appointments.filter(a => ['completed', 'declined', 'cancelled'].includes(a.status) || (a.status === 'confirmed' && new Date(a.appointment_date) < today));
             case 'Requests':
                 return appointments.filter(a => a.status === 'requested');
-            default:
-                return [];
+            default: return [];
         }
     }, [activeTab, appointments]);
 
     return (
-        <DoctorDashboardLayout activeItem="schedule" userProfile={doctorProfile}>
+        <DoctorDashboardLayout activeItem="appointments" userProfile={doctorProfile}>
             <div className="mb-8">
                 <h1 className="text-3xl font-bold text-slate-800">Manage Appointments</h1>
                 <p className="text-slate-500 mt-1">Review and manage your patient appointments.</p>
             </div>
 
             <div className="bg-white p-2 rounded-lg shadow-sm border border-slate-200/80 mb-6 flex items-center gap-2">
+                <TabButton active={activeTab === 'Requests'} onClick={() => setActiveTab('Requests')}>Requests</TabButton>
                 <TabButton active={activeTab === 'Upcoming'} onClick={() => setActiveTab('Upcoming')}>Upcoming</TabButton>
                 <TabButton active={activeTab === 'Past'} onClick={() => setActiveTab('Past')}>Past</TabButton>
-                <TabButton active={activeTab === 'Requests'} onClick={() => setActiveTab('Requests')}>Requests</TabButton>
             </div>
 
             {loading ? (
@@ -98,8 +82,10 @@ export default function DoctorAppointments() {
                             <AppointmentCard key={app._id} appointment={app} onUpdate={handleStatusUpdate} />
                         ))
                     ) : (
-                        <div className="md:col-span-2 xl:col-span-3 text-center py-12 text-slate-500">
-                            <p>No {activeTab.toLowerCase()} appointments.</p>
+                        <div className="col-span-full text-center py-12 text-slate-500 bg-slate-50 rounded-lg">
+                            <Calendar size={40} className="mx-auto text-slate-400" />
+                             <h3 className="mt-4 text-lg font-semibold text-slate-700">No Appointments Found</h3>
+                            <p className="mt-1 text-sm">There are no {activeTab.toLowerCase()} appointments.</p>
                         </div>
                     )}
                 </div>
@@ -108,33 +94,27 @@ export default function DoctorAppointments() {
     );
 }
 
-// Improved Appointment Card
+// Helper Components
+const TabButton = ({ active, onClick, children }) => <button onClick={onClick} className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all ${active ? 'bg-emerald-600 text-white shadow' : 'text-slate-600 hover:bg-slate-200'}`}>{children}</button>;
+
 const AppointmentCard = ({ appointment, onUpdate }) => {
-    const { patientId: patient, status } = appointment;
+    const { patientId: patient, status, type } = appointment;
     const isRequest = status === 'requested';
 
-    const typeIcons = {
-        video: <Video size={16} className="text-purple-600" />,
-        clinic: <Hospital size={16} className="text-blue-600" />,
-        phone: <MessageSquare size={16} className="text-green-600" />,
-    };
+    const typeIcons = { video: <Video size={16} className="text-purple-600" />, clinic: <Hospital size={16} className="text-blue-600" />, phone: <MessageSquare size={16} className="text-green-600" /> };
 
     return (
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col gap-4">
             <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                    <img
-                        src={`https://api.dicebear.com/7.x/initials/svg?seed=${patient?.name}`}
-                        alt={patient?.name}
-                        className="w-12 h-12 rounded-full bg-slate-100"
-                    />
+                    <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${patient?.name}`} alt={patient?.name} className="w-12 h-12 rounded-full bg-slate-100" />
                     <div>
                         <h4 className="font-bold text-slate-800">{patient?.name || 'Unknown Patient'}</h4>
                         <p className="text-sm text-slate-500">Med ID: {patient?.med_id}</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2 capitalize text-xs font-semibold py-1 px-2.5 rounded-full bg-slate-100 text-slate-600">
-                   {typeIcons[appointment.type]} {appointment.type}
+                   {typeIcons[type]} {type}
                 </div>
             </div>
 

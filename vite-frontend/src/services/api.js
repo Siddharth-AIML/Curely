@@ -1,8 +1,8 @@
 import axios from 'axios';
 
-// ============================================================================
+// ===========================================================================
 // 1. API INSTANCE SETUP
-// ============================================================================
+// ===========================================================================
 const API = axios.create({
   baseURL: 'http://localhost:3001/api', // Your backend server URL
 });
@@ -16,46 +16,41 @@ API.interceptors.request.use((req) => {
   return req;
 });
 
-
-// ============================================================================
+// ===========================================================================
 // 2. AUTHENTICATION API CALLS
-// ============================================================================
+// ===========================================================================
 export const loginUser = (userData) => API.post('/auth/login', userData);
 export const signupCustomer = (customerData) => API.post('/auth/signup/customer', customerData);
 export const signupDoctor = (doctorData) => API.post('/auth/signup/doctor', doctorData);
 
-
-// ============================================================================
+// ===========================================================================
 // 3. CUSTOMER API CALLS
-// ============================================================================
+// ===========================================================================
 export const getCustomerProfile = () => API.get('/customer/profile');
-export const getAllDoctors = () => API.get('/customer/doctors');
-
-// Corrected route for getting prescriptions for the logged-in customer
+export const getAllDoctors = () => API.get('/doctor/all');
 export const getCustomerPrescriptions = () => API.get('/medical/customer-prescriptions');
-
-// Corrected route for getting reports for the logged-in customer
 export const getCustomerReports = () => API.get('/medical/customer-reports');
+// FIXED: Added the missing function to fetch customer appointments
+export const getCustomerAppointments = () => API.get('/appointments/customer');
 
 
-// ============================================================================
+// ===========================================================================
 // 4. DOCTOR API CALLS
-// ============================================================================
+// ===========================================================================
 export const getDoctorProfile = () => API.get('/doctor/profile');
 export const findCustomerByMedId = (medId) => API.get(`/doctor/customer/${medId}`);
 
-
-// ============================================================================
-// 5. APPOINTMENT API CALLS
-// ============================================================================
+// ===========================================================================
+// 5. APPOINTMENT API CALLS (Shared & Doctor)
+// ===========================================================================
 export const requestAppointment = (appointmentData) => API.post('/appointments', appointmentData);
 export const getDoctorAppointments = () => API.get('/appointments/doctor');
 export const updateAppointmentStatus = (appointmentId, status) => API.put(`/appointments/${appointmentId}/status`, { status });
 
 
-// ============================================================================
+// ===========================================================================
 // 6. MEDICAL (PRESCRIPTIONS & REPORTS) API CALLS
-// ============================================================================
+// ===========================================================================
 export const createPrescription = (prescriptionData) => API.post('/medical/prescriptions', prescriptionData);
 export const getPrescriptionsByMedId = (medId) => API.get(`/medical/prescriptions/${medId}`);
 
