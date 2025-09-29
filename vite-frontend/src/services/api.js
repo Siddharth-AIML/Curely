@@ -1,13 +1,7 @@
 import axios from 'axios';
 
-// ===========================================================================
-// 1. API INSTANCE SETUP
-// ===========================================================================
-const API = axios.create({
-  baseURL: 'http://localhost:3001/api', // Your backend server URL
-});
+const API = axios.create({ baseURL: 'http://localhost:3001/api' });
 
-// Interceptor to add the auth token to every request
 API.interceptors.request.use((req) => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -16,44 +10,32 @@ API.interceptors.request.use((req) => {
   return req;
 });
 
-// ===========================================================================
-// 2. AUTHENTICATION API CALLS
-// ===========================================================================
+// --- AUTH ---
 export const loginUser = (userData) => API.post('/auth/login', userData);
 export const signupCustomer = (customerData) => API.post('/auth/signup/customer', customerData);
 export const signupDoctor = (doctorData) => API.post('/auth/signup/doctor', doctorData);
 
-// ===========================================================================
-// 3. CUSTOMER API CALLS
-// ===========================================================================
+// --- CUSTOMER ---
 export const getCustomerProfile = () => API.get('/customer/profile');
-export const getAllDoctors = () => API.get('/doctor/all');
+export const getAllDoctors = () => API.get('/customer/doctors');
 export const getCustomerPrescriptions = () => API.get('/medical/customer-prescriptions');
 export const getCustomerReports = () => API.get('/medical/customer-reports');
-// FIXED: Added the missing function to fetch customer appointments
 export const getCustomerAppointments = () => API.get('/appointments/customer');
+export const updateCustomerPassword = (passwordData) => API.put('/customer/password', passwordData);
 
-
-// ===========================================================================
-// 4. DOCTOR API CALLS
-// ===========================================================================
+// --- DOCTOR ---
 export const getDoctorProfile = () => API.get('/doctor/profile');
 export const findCustomerByMedId = (medId) => API.get(`/doctor/customer/${medId}`);
+export const updateDoctorPassword = (passwordData) => API.put('/doctor/password', passwordData);
 
-// ===========================================================================
-// 5. APPOINTMENT API CALLS (Shared & Doctor)
-// ===========================================================================
+// --- APPOINTMENTS ---
 export const requestAppointment = (appointmentData) => API.post('/appointments', appointmentData);
 export const getDoctorAppointments = () => API.get('/appointments/doctor');
 export const updateAppointmentStatus = (appointmentId, status) => API.put(`/appointments/${appointmentId}/status`, { status });
 
-
-// ===========================================================================
-// 6. MEDICAL (PRESCRIPTIONS & REPORTS) API CALLS
-// ===========================================================================
+// --- MEDICAL ---
 export const createPrescription = (prescriptionData) => API.post('/medical/prescriptions', prescriptionData);
 export const getPrescriptionsByMedId = (medId) => API.get(`/medical/prescriptions/${medId}`);
-
 export const createReport = (reportData) => API.post('/medical/reports', reportData);
 export const getReportsByMedId = (medId) => API.get(`/medical/reports/${medId}`);
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Stethoscope, Briefcase, Banknote, MapPin, X, Loader2, Calendar, Clock, User, AlertTriangle } from 'lucide-react';
+import { Stethoscope, Briefcase, Banknote, MapPin, X, Loader2, Calendar, Clock, User, AlertTriangle, Filter } from 'lucide-react';
 import DashboardLayout from '/src/components/DashboardLayout.jsx';
 import { getAllDoctors, getCustomerProfile, requestAppointment, getCustomerAppointments } from '/src/services/api.js';
 import { format } from 'date-fns';
@@ -14,6 +14,7 @@ export default function CustomerAppointments() {
   const [userProfile, setUserProfile] = useState(null);
   const [selectedDoctor, setSelectedDoctor] = useState(null);
   const [message, setMessage] = useState('');
+  const [filters, setFilters] = useState({ name: '', city: '', maxFee: '' });
   const navigate = useNavigate();
 
   const fetchInitialData = async () => {
@@ -25,13 +26,9 @@ export default function CustomerAppointments() {
         getCustomerAppointments(),
       ]);
       setUserProfile(profileRes.data);
-      console.log('Doctors response:', doctorsRes);
-      console.log('Doctors data:', doctorsRes.data);
-      // FIX: Use doctorsRes.data.data instead of doctorsRes.data
-      setDoctors(doctorsRes.data.data || []);
+      setDoctors(doctorsRes.data);
       setAppointments(appointmentsRes.data);
     } catch (error) {
-      console.error('Error fetching data:', error);
       setMessage('An error occurred while fetching data.');
        if (error.response?.status === 401) navigate('/login');
     } finally {
@@ -42,6 +39,21 @@ export default function CustomerAppointments() {
   useEffect(() => {
     fetchInitialData();
   }, [navigate]);
+  
+  const uniqueCities = useMemo(() => {
+      const cities = doctors.map(d => d.city);
+      return [...new Set(cities)].sort();
+  }, [doctors]);
+
+  const filteredDoctors = useMemo(() => {
+    return doctors.filter(doctor => {
+        const nameMatch = filters.name ? doctor.name.toLowerCase().includes(filters.name.toLowerCase()) : true;
+        const cityMatch = filters.city ? doctor.city.toLowerCase() === filters.city.toLowerCase() : true;
+        const feeMatch = filters.maxFee ? doctor.fee <= parseInt(filters.maxFee, 10) : true;
+        return nameMatch && cityMatch && feeMatch;
+    });
+  }, [doctors, filters]);
+
 
   return (
     <DashboardLayout activeItem="appointments" userProfile={userProfile}>
@@ -66,7 +78,12 @@ export default function CustomerAppointments() {
         <div className="flex justify-center items-center h-64"><Loader2 className="animate-spin text-emerald-600" size={48} /></div>
       ) : (
         <div>
-          {activeTab === 'book' && <DoctorList doctors={doctors} onBookSelect={setSelectedDoctor} />}
+          {activeTab === 'book' && (
+            <div className="space-y-6">
+                <FilterBar cities={uniqueCities} filters={filters} setFilters={setFilters} />
+                <DoctorList doctors={filteredDoctors} onBookSelect={setSelectedDoctor} hasActiveFilters={filters.name || filters.city || filters.maxFee} />
+            </div>
+          )}
           {activeTab === 'my' && <MyAppointmentList appointments={appointments} />}
         </div>
       )}
@@ -88,14 +105,38 @@ export default function CustomerAppointments() {
   );
 }
 
-// Sub-components for better organization
-const DoctorList = ({ doctors, onBookSelect }) => {
+// Sub-components
+const FilterBar = ({ cities, filters, setFilters }) => {
+    const handleFilterChange = (e) => {
+        setFilters(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    };
+
+    return (
+        <div className="bg-white p-4 rounded-xl border border-slate-200/80 flex items-center gap-4">
+            <Filter size={20} className="text-slate-500" />
+            <div className="flex-grow grid grid-cols-1 md:grid-cols-3 gap-4">
+                <InputField type="text" name="name" value={filters.name} onChange={handleFilterChange} placeholder="Search Doctor Name..." />
+                <SelectField name="city" value={filters.city} onChange={handleFilterChange}>
+                    <option value="">All Cities</option>
+                    {cities.map(city => <option key={city} value={city}>{city}</option>)}
+                </SelectField>
+                <InputField type="number" name="maxFee" value={filters.maxFee} onChange={handleFilterChange} placeholder="Max Fee (e.g., 1000)" />
+            </div>
+        </div>
+    );
+};
+
+const DoctorList = ({ doctors, onBookSelect, hasActiveFilters }) => {
     if (doctors.length === 0) {
         return (
             <div className="text-center py-16 bg-slate-50 rounded-lg">
                 <Stethoscope size={40} className="mx-auto text-slate-400" />
-                <h3 className="mt-4 text-lg font-semibold text-slate-700">No Verified Doctors Available</h3>
-                <p className="mt-1 text-sm text-slate-500">There are currently no doctors available for booking. Please check back later.</p>
+                <h3 className="mt-4 text-lg font-semibold text-slate-700">
+                    {hasActiveFilters ? "No Doctors Match Your Filters" : "No Verified Doctors Available"}
+                </h3>
+                <p className="mt-1 text-sm text-slate-500">
+                    {hasActiveFilters ? "Try adjusting your search criteria." : "Please check back later."}
+                </p>
             </div>
         );
     }
@@ -142,13 +183,7 @@ const MyAppointmentList = ({ appointments }) => {
 };
 
 const BookingModal = ({ doctor, onClose, onSuccess, setMessage }) => {
-    const [data, setData] = useState({
-        appointment_date: '',
-        appointment_time: '',
-        reason: '',
-        type: 'video',
-        patient_notes: ''
-    });
+    const [data, setData] = useState({ appointment_date: '', appointment_time: '', reason: '', type: 'video', patient_notes: '' });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleSubmit = async (e) => {
@@ -239,7 +274,7 @@ const AppointmentInfoCard = ({ appointment }) => {
 };
 
 const InfoItem = ({ icon, label, value }) => (<div className="flex items-center"><span className="text-slate-400">{icon}</span><span className="ml-2.5 font-medium w-20">{label}:</span><span className="font-semibold text-slate-700">{value}</span></div>);
-const InputField = ({ label, ...props }) => (<div><label className="block text-sm font-medium text-slate-700 mb-1">{label}</label><input {...props} className="w-full px-4 py-2 text-sm border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/50" /></div>);
-const SelectField = ({ label, children, ...props }) => (<div><label className="block text-sm font-medium text-slate-700 mb-1">{label}</label><select {...props} className="w-full px-4 py-2 text-sm border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-emerald-500/50">{children}</select></div>);
-const TextAreaField = ({ label, ...props }) => (<div><label className="block text-sm font-medium text-slate-700 mb-1">{label}</label><textarea {...props} rows="3" className="w-full px-4 py-2 text-sm border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/50" /></div>);
+const InputField = (props) => (<input {...props} className="w-full px-4 py-2 text-sm border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/50" />);
+const SelectField = ({ children, ...props }) => (<select {...props} className="w-full px-4 py-2 text-sm border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-emerald-500/50">{children}</select>);
+const TextAreaField = (props) => (<textarea {...props} rows="3" className="w-full px-4 py-2 text-sm border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/50" />);
 

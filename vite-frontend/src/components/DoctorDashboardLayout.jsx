@@ -1,10 +1,9 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    LayoutDashboard, Calendar, Users, MessageSquare, Settings, LogOut, HeartPulse, FileText, Pill
+    LayoutDashboard, Calendar, Users, MessageSquare, Settings, LogOut, HeartPulse, BookUser, FileText
 } from 'lucide-react';
 
-// SidebarItem can remain in this file as it's only used by the Sidebar
 const SidebarItem = ({ icon, text, active, onClick }) => (
   <button
     onClick={onClick}
@@ -22,7 +21,6 @@ const SidebarItem = ({ icon, text, active, onClick }) => (
   </button>
 );
 
-// The Sidebar component
 function DoctorSidebar({ activeItem, userProfile }) {
   const navigate = useNavigate();
 
@@ -50,26 +48,25 @@ function DoctorSidebar({ activeItem, userProfile }) {
           alt="Profile Avatar"
           className="w-16 h-16 rounded-full mx-auto mb-3 border-2 border-emerald-500/50"
         />
-        <h4 className="font-semibold text-slate-100">{userProfile?.name || 'Loading...'}</h4>
+        <h4 className="font-semibold text-slate-100">{userProfile?.name ? `Dr. ${userProfile.name}` : 'Loading...'}</h4>
         <p className="text-xs text-slate-400 truncate">{userProfile?.specialization}</p>
       </div>
 
       <nav className="flex-1">
         <SidebarItem icon={<LayoutDashboard size={20} />} text="Dashboard" active={activeItem === 'dashboard'} onClick={() => handleNavigation('/dashboard/doctor')} />
-        <SidebarItem icon={<Calendar size={20} />} text="Appointments" active={activeItem === 'schedule'} onClick={() => handleNavigation('/doctor/appointments')} />
-        <SidebarItem icon={<Pill size={20} />} text="Prescriptions" active={activeItem === 'prescriptions'} onClick={() => handleNavigation('/doctor/prescriptions')} />
+        <SidebarItem icon={<Calendar size={20} />} text="Appointments" active={activeItem === 'appointments'} onClick={() => handleNavigation('/doctor/appointments')} />
+        <SidebarItem icon={<BookUser size={20} />} text="Prescriptions" active={activeItem === 'prescriptions'} onClick={() => handleNavigation('/doctor/prescriptions')} />
         <SidebarItem icon={<FileText size={20} />} text="Reports" active={activeItem === 'reports'} onClick={() => handleNavigation('/doctor/reports')} />
       </nav>
 
       <div>
-        <SidebarItem icon={<Settings size={20} />} text="Settings" active={activeItem === 'settings'} onClick={() => console.log("Navigate to Settings")} />
+        <SidebarItem icon={<Settings size={20} />} text="Settings" active={activeItem === 'settings'} onClick={() => handleNavigation('/doctor/settings')} />
         <SidebarItem icon={<LogOut size={20} />} text="Logout" onClick={handleLogout} />
       </div>
     </aside>
   );
 }
 
-// The main Layout component
 export default function DoctorDashboardLayout({ children, activeItem, userProfile }) {
   return (
     <div className="min-h-screen bg-slate-100 font-sans">
@@ -82,3 +79,4 @@ export default function DoctorDashboardLayout({ children, activeItem, userProfil
     </div>
   );
 }
+

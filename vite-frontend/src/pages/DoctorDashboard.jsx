@@ -1,63 +1,59 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Clock, MoreHorizontal, UserPlus, Loader2, Calendar, MessageSquare } from 'lucide-react';
-import DoctorDashboardLayout from '../components/DoctorDashboardLayout';
-import StatCard from '../components/StatCard';
+import React , {useState , useEffect, useMemo } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Clock, UserPlus, Calendar, MoreHorizontal, Check, X, Loader2 } from 'lucide-react';
+import DoctorDashboardLayout from '/src/components/DoctorDashboardLayout.jsx';
+import StatCard from '/src/components/StatCard.jsx';
+import { getDoctorProfile, getDoctorAppointments, updateAppointmentStatus } from '/src/services/api.js';
+import { format, isToday } from 'date-fns';
 
 export default function DoctorDashboard() {
-    const [doctorData, setDoctorData] = useState(null);
+    const [profile, setProfile] = useState(null);
+    const [appointments, setAppointments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const navigate = useNavigate();
 
-    // --- Mock data for demonstration ---
-    const stats = {
-        appointments: 12,
-        requests: 3,
-        messages: 5
-    };
-    const appointments = [
-        { time: '09:00 AM', patient: 'John Doe', reason: 'Follow-up Consultation' },
-        { time: '10:30 AM', patient: 'Jane Smith', reason: 'Annual Check-up' },
-        { time: '11:15 AM', patient: 'Peter Jones', reason: 'Prescription Refill' },
-    ];
-    const requests = [
-        { patient: 'Alice Williams', reason: 'Sore throat and fever' },
-        { patient: 'Bob Brown', reason: 'Initial Consultation' },
-    ];
-
-    // --- Fetch doctor's profile on load ---
-    useEffect(() => {
-        const fetchDoctorProfile = async () => {
-            setLoading(true);
-            try {
-                const token = localStorage.getItem("token");
-                if (!token) {
-                    navigate("/login");
-                    return;
-                }
-
-                const res = await fetch("http://localhost:3001/api/doctor/profile", {
-                    method: "GET",
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-
-                const data = await res.json();
-
-                if (!res.ok) {
-                    throw new Error(data.message || "Error fetching profile");
-                }
-
-                setDoctorData(data);
-            } catch (err) {
-                setError(err.message || "Server error");
-            } finally {
-                setLoading(false);
+    const fetchDashboardData = async () => {
+        // Keep loading true while re-fetching
+        setError('');
+        try {
+            const token = localStorage.getItem("token");
+            if (!token) {
+                navigate("/login");
+                return;
             }
-        };
+            const [profileRes, appointmentsRes] = await Promise.all([
+                getDoctorProfile(),
+                getDoctorAppointments()
+            ]);
+            setProfile(profileRes.data);
+            setAppointments(appointmentsRes.data);
+        } catch (err) {
+            setError("Failed to load dashboard data.");
+            if (err.response?.status === 401) navigate("/login");
+        } finally {
+            setLoading(false);
+        }
+    };
 
-        fetchDoctorProfile();
+    useEffect(() => {
+        fetchDashboardData();
     }, [navigate]);
+
+    const handleStatusUpdate = async (id, status) => {
+        try {
+            await updateAppointmentStatus(id, status);
+            fetchDashboardData(); // Refresh all data after an update
+        } catch (err) {
+            setError('Could not update appointment status.');
+        }
+    };
+
+    const { todaysAppointments, pendingRequests } = useMemo(() => {
+        const todays = appointments.filter(a => a.status === 'confirmed' && isToday(new Date(a.appointment_date)));
+        const requests = appointments.filter(a => a.status === 'requested');
+        return { todaysAppointments: todays, pendingRequests: requests };
+    }, [appointments]);
 
     if (loading) {
         return (
@@ -67,70 +63,79 @@ export default function DoctorDashboard() {
         );
     }
 
-    if (error) {
-        return (
-            <div className="w-screen h-screen flex justify-center items-center bg-slate-100">
-                <div className="text-center p-8 bg-white rounded-lg shadow-md">
-                    <h3 className="text-red-600 font-semibold">An Error Occurred</h3>
-                    <p className="text-slate-600 mt-2">{error}</p>
-                </div>
-            </div>
-        );
-    }
-
     return (
-        <DoctorDashboardLayout activeItem="dashboard" userProfile={doctorData}>
+        <DoctorDashboardLayout activeItem="dashboard" userProfile={profile}>
             <div className="mb-8">
                 <h1 className="text-3xl font-bold text-slate-800">
-                    Welcome back, Dr. {doctorData ? doctorData.name : ''}!
+                    Welcome back, {profile ? `Dr. ${profile.name.split(' ')[0]}` : ''}!
                 </h1>
                 <p className="text-slate-500 mt-1">Here’s what your day looks like.</p>
             </div>
+            
+            {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg mb-6">{error}</p>}
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <StatCard icon={<Calendar size={24} className="text-sky-600" />} title="Today's Appointments" value={stats.appointments} color="bg-sky-100" />
-                <StatCard icon={<UserPlus size={24} className="text-amber-600" />} title="Pending Requests" value={stats.requests} color="bg-amber-100" />
-                <StatCard icon={<MessageSquare size={24} className="text-emerald-600" />} title="Unread Messages" value={stats.messages} color="bg-emerald-100" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <StatCard icon={<Calendar size={24} className="text-sky-600" />} title="Today's Appointments" value={todaysAppointments.length} color="bg-sky-100" />
+                <StatCard icon={<UserPlus size={24} className="text-amber-600" />} title="Pending Requests" value={pendingRequests.length} color="bg-amber-100" />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
+                <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border">
                     <h3 className="text-lg font-semibold text-slate-800 mb-4">Today's Schedule</h3>
                     <div className="space-y-4">
-                        {appointments.map((appt, index) => (
-                            <div key={index} className="flex items-center p-3 rounded-lg hover:bg-slate-50 transition-colors">
-                                <div className="flex items-center justify-center w-12 h-12 bg-slate-100 rounded-lg mr-4">
-                                    <Clock size={24} className="text-slate-500" />
-                                </div>
-                                <div className="flex-1">
-                                    <p className="font-semibold text-slate-800">{appt.patient}</p>
-                                    <p className="text-sm text-slate-500">{appt.reason}</p>
-                                </div>
-                                <div className="text-right">
-                                    <p className="font-mono text-sm font-semibold text-emerald-600">{appt.time}</p>
-                                    <button className="text-slate-400 hover:text-slate-600 mt-1"><MoreHorizontal size={20} /></button>
-                                </div>
-                            </div>
-                        ))}
+                        {todaysAppointments.length > 0 ? todaysAppointments.map(appt => (
+                            <AppointmentItem key={appt._id} appointment={appt} />
+                        )) : <EmptyState message="You have no appointments scheduled for today." />}
                     </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
+                <div className="bg-white p-6 rounded-2xl shadow-sm border">
                     <h3 className="text-lg font-semibold text-slate-800 mb-4">Appointment Requests</h3>
                      <div className="space-y-3">
-                        {requests.map((req, index) => (
-                            <div key={index} className="bg-slate-50 p-4 rounded-lg">
-                                <p className="font-semibold text-slate-800">{req.patient}</p>
-                                <p className="text-sm text-slate-500 mb-3">{req.reason}</p>
-                                <div className="flex gap-2">
-                                    <button className="flex-1 text-xs py-1.5 rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200">Approve</button>
-                                    <button className="flex-1 text-xs py-1.5 rounded bg-slate-200 text-slate-600 hover:bg-slate-300">Decline</button>
-                                </div>
-                            </div>
-                        ))}
+                        {pendingRequests.length > 0 ? pendingRequests.map(req => (
+                            <RequestItem key={req._id} request={req} onUpdate={handleStatusUpdate} />
+                        )) : <EmptyState message="You have no new appointment requests." />}
                     </div>
                 </div>
             </div>
         </DoctorDashboardLayout>
     );
 }
+
+
+// Helper Components for the Dashboard
+const AppointmentItem = ({ appointment }) => (
+    <div className="flex items-center p-3 rounded-lg hover:bg-slate-50 transition-colors">
+        <div className="flex items-center justify-center w-12 h-12 bg-slate-100 rounded-lg mr-4">
+            <Clock size={24} className="text-slate-500" />
+        </div>
+        <div className="flex-1">
+            <p className="font-semibold text-slate-800">{appointment.patientId?.name || 'N/A'}</p>
+            <p className="text-sm text-slate-500">{appointment.reason}</p>
+        </div>
+        <div className="text-right">
+            <p className="font-mono text-sm font-semibold text-emerald-600">{appointment.appointment_time}</p>
+            <Link to="/doctor/appointments" className="text-slate-400 hover:text-slate-600 mt-1 inline-block"><MoreHorizontal size={20} /></Link>
+        </div>
+    </div>
+);
+
+const RequestItem = ({ request, onUpdate }) => (
+    <div className="bg-slate-50 p-4 rounded-lg border">
+        <p className="font-semibold text-slate-800">{request.patientId?.name || 'N/A'}</p>
+        <p className="text-xs text-slate-500 mb-1">
+            {format(new Date(request.appointment_date), 'MMMM d, yyyy')} at {request.appointment_time}
+        </p>
+        <p className="text-sm text-slate-500 mb-3">{request.reason}</p>
+        <div className="flex gap-2">
+            <button onClick={() => onUpdate(request._id, 'confirmed')} className="flex-1 text-xs py-1.5 rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200 font-semibold flex items-center justify-center gap-1"><Check size={14}/> Approve</button>
+            <button onClick={() => onUpdate(request._id, 'declined')} className="flex-1 text-xs py-1.5 rounded bg-slate-200 text-slate-600 hover:bg-slate-300 font-semibold flex items-center justify-center gap-1"><X size={14}/> Decline</button>
+        </div>
+    </div>
+);
+
+const EmptyState = ({ message }) => (
+    <div className="text-center py-10">
+        <p className="text-sm text-slate-500">{message}</p>
+    </div>
+);

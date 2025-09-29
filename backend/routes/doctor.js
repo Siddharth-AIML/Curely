@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const bcrypt = require('bcryptjs');
 const { protect, isDoctor } = require('../middleware/authMiddleware');
 const Doctor = require('../models/doctor');
 const Customer = require('../models/customer');
@@ -29,17 +30,10 @@ router.get('/profile', protect, isDoctor, async (req, res) => {
  */
 router.get('/customer/:medId', protect, isDoctor, async (req, res) => {
     try {
-        const medId = req.params.medId;
-        console.log(`Searching for customer with med_id: ${medId}`); // <-- Added for debugging
-
-        const customer = await Customer.findOne({ med_id: medId }).select('-password');
-        
+        const customer = await Customer.findOne({ med_id: req.params.medId }).select('-password');
         if (!customer) {
-            console.log(`Customer with med_id: ${medId} NOT FOUND.`); // <-- Added for debugging
             return res.status(404).json({ msg: 'Patient with this Medical ID not found' });
         }
-        
-        console.log(`Customer found: ${customer.name}`); // <-- Added for debugging
         res.json(customer);
     } catch (err) {
         console.error(err.message);
@@ -48,26 +42,31 @@ router.get('/customer/:medId', protect, isDoctor, async (req, res) => {
 });
 
 /**
- * @route   GET /api/doctor/all
- * @desc    Get all verified doctors
- * @access  Public
+ * @route   PUT /api/doctor/password
+ * @desc    Update doctor password
+ * @access  Private (Doctor)
  */
-router.get('/all', async (req, res) => {
+router.put('/password', protect, isDoctor, async (req, res) => {
+    const { currentPassword, newPassword } = req.body;
     try {
-        // Check all doctors first
-        const allDoctors = await Doctor.find({}).select('-password');
-        console.log('Total doctors in database:', allDoctors.length);
-        console.log('All doctors:', allDoctors.map(d => ({ name: d.name, verification: d.verification })));
+        const doctor = await Doctor.findById(req.user.id);
+        const isMatch = await bcrypt.compare(currentPassword, doctor.password);
 
-        // Then check verified doctors
-        const doctors = await Doctor.find({ verification: true }).select('-password');
-        console.log('Verified doctors:', doctors.length);
-        
-        res.json({ data: doctors });
+        if (!isMatch) {
+            return res.status(400).json({ msg: 'Incorrect current password' });
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        doctor.password = await bcrypt.hash(newPassword, salt);
+        await doctor.save();
+
+        res.json({ msg: 'Password updated successfully' });
     } catch (err) {
         console.error(err.message);
-        res.status(500).json({ msg: 'Server Error' });
+        res.status(500).send('Server Error');
     }
 });
 
+
 module.exports = router;
+

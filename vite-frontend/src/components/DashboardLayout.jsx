@@ -4,19 +4,18 @@ import {
   LayoutDashboard, 
   Calendar, 
   FileText, 
-  MessageSquare, 
   Settings, 
   LogOut, 
   HeartPulse,
-  Pill
+  BookUser,
+  Bot
 } from 'lucide-react';
 
-// --- Reusable Sidebar Item ---
-const SidebarItem = ({ icon, text, active, onClick }) => (
+const SidebarItem = ({ icon, text, active, onClick, isBeta }) => (
   <button
     onClick={onClick}
     className={`
-      flex items-center py-3 px-4 my-1 font-medium rounded-lg cursor-pointer
+      flex items-center justify-between py-3 px-4 my-1 font-medium rounded-lg cursor-pointer
       transition-colors group w-full text-left
       ${active
         ? "bg-emerald-400/20 text-white"
@@ -24,12 +23,14 @@ const SidebarItem = ({ icon, text, active, onClick }) => (
       }
     `}
   >
-    {icon}
-    <span className="ml-3">{text}</span>
+    <div className="flex items-center">
+        {icon}
+        <span className="ml-3">{text}</span>
+    </div>
+    {isBeta && <span className="text-xs bg-sky-200/20 text-sky-300 font-bold px-2 py-0.5 rounded-md">Beta</span>}
   </button>
 );
 
-// --- Sidebar Component ---
 function Sidebar({ activeItem = 'dashboard', userProfile }) {
   const navigate = useNavigate();
 
@@ -68,41 +69,34 @@ function Sidebar({ activeItem = 'dashboard', userProfile }) {
 
       <nav className="flex-1">
         <SidebarItem
-          icon={<LayoutDashboard size={20} />}
-          text="Dashboard"
-          active={activeItem === 'dashboard'}
-          onClick={() => handleNavigation('/dashboard/customer')}
+          icon={<LayoutDashboard size={20} />} text="Dashboard"
+          active={activeItem === 'dashboard'} onClick={() => handleNavigation('/dashboard/customer')}
         />
         <SidebarItem
-          icon={<Calendar size={20} />}
-          text="Appointments"
-          active={activeItem === 'appointments'}
-          onClick={() => handleNavigation('/customer/appointments')}
+          icon={<Calendar size={20} />} text="Appointments"
+          active={activeItem === 'appointments'} onClick={() => handleNavigation('/customer/appointments')}
         />
         <SidebarItem
-          icon={<Pill size={20} />}
-          text="Prescriptions"
-          active={activeItem === 'prescriptions'}
-          onClick={() => handleNavigation("/customer/prescriptions")}
+          icon={<BookUser size={20} />} text="Prescriptions"
+          active={activeItem === 'prescriptions'} onClick={() => handleNavigation('/customer/prescriptions')}
         />
         <SidebarItem
-          icon={<FileText size={20} />}
-          text="Reports"
-          active={activeItem === 'reports'}
-          onClick={() => handleNavigation("/customer/reports")}
+          icon={<FileText size={20} />} text="Reports"
+          active={activeItem === 'reports'} onClick={() => handleNavigation('/customer/reports')}
+        />
+         <SidebarItem
+          icon={<Bot size={20} />} text="Symptom Checker" isBeta
+          active={activeItem === 'symptom-checker'} onClick={() => handleNavigation('/customer/symptom-checker')}
         />
       </nav>
 
       <div>
         <SidebarItem
-          icon={<Settings size={20} />}
-          text="Settings"
-          active={activeItem === 'settings'}
-          onClick={() => console.log("Navigate to settings")}
+          icon={<Settings size={20} />} text="Settings"
+          active={activeItem === 'settings'} onClick={() => handleNavigation('/customer/settings')}
         />
         <SidebarItem
-          icon={<LogOut size={20} />}
-          text="Logout"
+          icon={<LogOut size={20} />} text="Logout"
           onClick={handleLogout}
         />
       </div>
@@ -110,7 +104,6 @@ function Sidebar({ activeItem = 'dashboard', userProfile }) {
   );
 }
 
-// --- Layout Component (Now with Default Export) ---
 export default function DashboardLayout({ children, activeItem, userProfile }) {
   return (
     <div className="min-h-screen bg-slate-100 font-sans">
@@ -123,3 +116,4 @@ export default function DashboardLayout({ children, activeItem, userProfile }) {
     </div>
   );
 }
+
