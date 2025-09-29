@@ -1,72 +1,75 @@
 const express = require('express');
 const router = express.Router();
-const bcrypt = require('bcryptjs');
 const { protect, isDoctor } = require('../middleware/authMiddleware');
 const Doctor = require('../models/doctor');
 const Customer = require('../models/customer');
+const { sendPatientVerificationEmail, verifyOTP } = require('../utils/email');
 
-/**
- * @route   GET /api/doctor/profile
- * @desc    Get logged-in doctor's profile
- * @access  Private (Doctor)
- */
+// ... (GET /profile and GET /customer/:medId routes remain the same)
 router.get('/profile', protect, isDoctor, async (req, res) => {
     try {
         const doctor = await Doctor.findById(req.user.id).select('-password');
-        if (!doctor) {
-            return res.status(404).json({ msg: 'Doctor profile not found' });
-        }
         res.json(doctor);
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server Error');
-    }
+    } catch (err) { res.status(500).send('Server Error'); }
 });
 
-/**
- * @route   GET /api/doctor/customer/:medId
- * @desc    Find a customer by their Medical ID
- * @access  Private (Doctor)
- */
 router.get('/customer/:medId', protect, isDoctor, async (req, res) => {
     try {
         const customer = await Customer.findOne({ med_id: req.params.medId }).select('-password');
-        if (!customer) {
-            return res.status(404).json({ msg: 'Patient with this Medical ID not found' });
-        }
+        if (!customer) return res.status(404).json({ msg: 'Patient not found' });
         res.json(customer);
+    } catch (err) { res.status(500).send('Server Error'); }
+});
+
+
+/**
+ * @route   POST /api/doctor/send-patient-otp
+ * @desc    Send a verification OTP to the specified patient's email
+ * @access  Private (Doctor)
+ */
+router.post('/send-patient-otp', protect, isDoctor, async (req, res) => {
+    const { medId } = req.body;
+    if (!medId) return res.status(400).json({ msg: 'Patient Medical ID is required.' });
+
+    try {
+        const patient = await Customer.findOne({ med_id: medId });
+        const doctor = await Doctor.findById(req.user.id);
+
+        if (!patient || !doctor) {
+            return res.status(404).json({ msg: 'Patient or Doctor not found.' });
+        }
+        
+        await sendPatientVerificationEmail(patient.email, doctor.name);
+        res.json({ msg: `A verification code has been sent to ${patient.name}'s registered email.` });
     } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server Error');
+        res.status(500).json({ msg: 'Failed to send OTP.' });
     }
 });
 
 /**
- * @route   PUT /api/doctor/password
- * @desc    Update doctor password
+ * @route   POST /api/doctor/verify-patient-otp
+ * @desc    Verify the OTP for a specific patient
  * @access  Private (Doctor)
  */
-router.put('/password', protect, isDoctor, async (req, res) => {
-    const { currentPassword, newPassword } = req.body;
+router.post('/verify-patient-otp', protect, isDoctor, async (req, res) => {
+    const { medId, otp } = req.body;
+    if (!medId || !otp) {
+        return res.status(400).json({ msg: 'Medical ID and OTP are required.' });
+    }
     try {
-        const doctor = await Doctor.findById(req.user.id);
-        const isMatch = await bcrypt.compare(currentPassword, doctor.password);
+        const patient = await Customer.findOne({ med_id: medId });
+        if (!patient) return res.status(404).json({ msg: 'Patient not found.' });
 
-        if (!isMatch) {
-            return res.status(400).json({ msg: 'Incorrect current password' });
+        const isValid = verifyOTP(patient.email, otp);
+        if (isValid) {
+            res.json({ msg: 'Verification successful. You may now proceed.' });
+        } else {
+            res.status(400).json({ msg: 'Invalid or expired OTP.' });
         }
-
-        const salt = await bcrypt.genSalt(10);
-        doctor.password = await bcrypt.hash(newPassword, salt);
-        await doctor.save();
-
-        res.json({ msg: 'Password updated successfully' });
     } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server Error');
+        res.status(500).json({ msg: 'Server error during OTP verification.' });
     }
 });
-
 
 module.exports = router;
 

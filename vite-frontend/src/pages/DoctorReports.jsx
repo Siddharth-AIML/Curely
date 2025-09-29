@@ -1,19 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { FilePlus, Search, Loader2, X, Plus } from 'lucide-react';
-import DoctorDashboardLayout from '/src/components/DoctorDashboardLayout.jsx';
-import { createReport, getReportsByMedId, findCustomerByMedId, getDoctorProfile } from '/src/services/api.js';
+import { FilePlus, Search, Loader2, X, Plus, KeyRound, ShieldCheck } from 'lucide-react';
+import DoctorDashboardLayout from '../components/DoctorDashboardLayout.jsx';
+import { createReport, getReportsByMedId, findCustomerByMedId, getDoctorProfile, sendPatientOTP, verifyPatientOTP } from '../services/api.js';
 import { format } from 'date-fns';
 
 export default function DoctorReports() {
     const [medId, setMedId] = useState('');
     const [searchedCustomer, setSearchedCustomer] = useState(null);
+    const [isVerified, setIsVerified] = useState(false); // New state to track verification
     const [reports, setReports] = useState([]);
     const [isFormOpen, setIsFormOpen] = useState(false);
-    const [loading, setLoading] = useState(false);
+    const [doctorProfile, setDoctorProfile] = useState(null);
     const [searchLoading, setSearchLoading] = useState(false);
     const [error, setError] = useState('');
-    const [doctorProfile, setDoctorProfile] = useState(null);
 
     const { register, handleSubmit, reset } = useForm();
 
@@ -32,60 +32,51 @@ export default function DoctorReports() {
         setSearchLoading(true);
         setError('');
         setSearchedCustomer(null);
+        setIsVerified(false); // Reset verification on new search
         setReports([]);
         try {
             const customerRes = await findCustomerByMedId(medId);
             setSearchedCustomer(customerRes.data);
-            const reportsRes = await getReportsByMedId(medId);
-            setReports(Array.isArray(reportsRes.data) ? reportsRes.data : []);
         } catch (err) {
-            setError(err.response?.data?.msg || 'Patient not found or error fetching data.');
-            setReports([]);
+            setError(err.response?.data?.msg || 'Patient not found.');
         } finally {
             setSearchLoading(false);
         }
     };
 
+    const handleVerificationSuccess = async () => {
+        setIsVerified(true);
+        try {
+            const reportsRes = await getReportsByMedId(searchedCustomer.med_id);
+            setReports(reportsRes.data);
+        } catch (err) {
+            setError("Verification successful, but failed to fetch reports.");
+        }
+    };
+
     const openForm = () => {
-        if (searchedCustomer) {
+        if (isVerified) {
             setError('');
+            reset({ title: '', summary: '', fileUrl: ''});
             setIsFormOpen(true);
         } else {
-            setError("Please search for a patient before creating a report.");
+            setError("Please verify access to the patient's records first.");
         }
     };
     
-    const onSubmit = async (data) => {
-        if (!searchedCustomer || !searchedCustomer.med_id) {
-            setError("Cannot create report. A patient must be selected.");
-            return;
-        }
-        setLoading(true);
-        setError('');
-        try {
-            const reportData = { 
-                medId: searchedCustomer.med_id, 
-                title: data.title,
-                summary: data.summary,
-                fileUrl: data.fileUrl
-            };
-            await createReport(reportData);
-            reset({ title: '', summary: '', fileUrl: ''});
-            setIsFormOpen(false);
-            const reportsRes = await getReportsByMedId(searchedCustomer.med_id);
-            setReports(Array.isArray(reportsRes.data) ? reportsRes.data : []);
-        } catch (err) {
-            setError(err.response?.data?.msg || "Failed to create report.");
-        } finally {
-            setLoading(false);
-        }
+    const handleReportCreation = async (data) => {
+        const reportData = { medId: searchedCustomer.med_id, ...data };
+        await createReport(reportData);
+        setIsFormOpen(false);
+        const reportsRes = await getReportsByMedId(searchedCustomer.med_id);
+        setReports(reportsRes.data);
     };
 
     return (
         <DoctorDashboardLayout activeItem="reports" userProfile={doctorProfile}>
             <div className="mb-8">
                 <h1 className="text-3xl font-bold text-slate-800">Medical Reports</h1>
-                <p className="text-slate-500 mt-1">Search for a patient to manage their medical reports.</p>
+                <p className="text-slate-500 mt-1">Search for a patient and verify access to manage their reports.</p>
             </div>
 
             <div className="bg-white p-6 rounded-2xl shadow-sm border mb-8">
@@ -103,55 +94,142 @@ export default function DoctorReports() {
                 </div>
                  {error && <p className="text-sm text-red-600 mt-4">{error}</p>}
             </div>
+            
+            {searchedCustomer && !isVerified && (
+                <VerificationPrompt customer={searchedCustomer} onSuccess={handleVerificationSuccess} />
+            )}
 
-            <div className="bg-white p-6 rounded-2xl shadow-sm border">
-                <h3 className="text-lg font-semibold text-slate-800 mb-4">{searchedCustomer ? `Report History for ${searchedCustomer.name}` : 'Search for a patient to see their history'}</h3>
-                <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
-                    {searchedCustomer ? (reports.length > 0 ? reports.map(r => (
-                        <div key={r._id} className="p-4 rounded-lg bg-slate-50 border">
-                            <p className="font-semibold">{r.title}</p>
-                            <p className="text-sm text-slate-500">Date: {format(new Date(r.date), 'MMMM d, yyyy')}</p>
-                            <p className="text-sm mt-2"><strong>Summary:</strong> {r.summary}</p>
-                        </div>
-                    )) : <p className="text-sm text-center text-slate-500 py-8">No past reports found.</p>) : <Placeholder text="Patient's report history will appear here." />}
+            {isVerified && (
+                <div className="bg-white p-6 rounded-2xl shadow-sm border">
+                    <h3 className="text-lg font-semibold text-slate-800 mb-4">{`Report History for ${searchedCustomer.name}`}</h3>
+                    <div className="space-y-4 max-h-[500px] overflow-y-auto">
+                        {reports.length > 0 ? reports.map(r => (
+                            <div key={r._id} className="p-4 rounded-lg bg-slate-50 border">
+                                <p className="font-semibold">{r.title}</p>
+                                <p className="text-sm text-slate-500">Date: {format(new Date(r.date), 'MMMM d, yyyy')}</p>
+                                <p className="text-sm mt-2"><strong>Summary:</strong> {r.summary}</p>
+                            </div>
+                        )) : <p className="text-sm text-center text-slate-500 py-8">No past reports found for this patient.</p>}
+                    </div>
                 </div>
-            </div>
+            )}
 
-            {isFormOpen && <ReportFormModal {...{ searchedCustomer, handleSubmit, onSubmit, register, loading, setIsFormOpen }} />}
+            {isFormOpen && (
+                <ReportFormModal 
+                    customer={searchedCustomer} 
+                    onClose={() => setIsFormOpen(false)} 
+                    onSubmit={handleReportCreation}
+                    formMethods={{ register, handleSubmit }}
+                />
+            )}
 
-            <button onClick={openForm} disabled={!searchedCustomer} title={!searchedCustomer ? "Search for a patient to enable" : "Create New Report"} className="fixed bottom-8 right-8 w-16 h-16 bg-emerald-600 text-white rounded-full shadow-lg hover:bg-emerald-700 flex items-center justify-center disabled:bg-slate-400 disabled:cursor-not-allowed transition-all hover:scale-110 active:scale-100">
+            <button onClick={openForm} disabled={!isVerified} title={!isVerified ? "Verify patient access to enable" : "Create New Report"} className="fixed bottom-8 right-8 w-16 h-16 bg-emerald-600 text-white rounded-full shadow-lg hover:bg-emerald-700 flex items-center justify-center disabled:bg-slate-400 disabled:cursor-not-allowed transition-all hover:scale-110 active:scale-100">
                 <Plus size={24} />
             </button>
         </DoctorDashboardLayout>
     );
 }
 
-// Helper Components
-const ReportFormModal = ({ searchedCustomer, handleSubmit, onSubmit, register, loading, setIsFormOpen }) => (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-50 p-4">
-        <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-2xl relative">
-            <button onClick={() => setIsFormOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><X size={24} /></button>
-            <div className="mb-4">
-                <h3 className="text-lg font-semibold text-slate-800 mb-1">New Report For:</h3>
-                <div className="flex items-baseline gap-2">
-                    <p className="font-bold text-emerald-700 text-xl">{searchedCustomer.name}</p>
-                    <p className="text-sm text-slate-500 font-mono">(Med ID: {searchedCustomer.med_id})</p>
-                </div>
-            </div>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                <InputField label="Report Title" name="title" register={register} required />
-                <TextAreaField label="Summary" name="summary" register={register} required rows="6" />
-                <InputField label="File URL (Optional)" name="fileUrl" register={register} />
-                <button type="submit" disabled={loading} className="w-full py-2.5 px-4 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700 disabled:bg-emerald-400 flex items-center justify-center">
-                    {loading ? <Loader2 className="animate-spin mr-2" size={16} /> : <FilePlus className="mr-2" size={16} />} 
-                    {loading ? 'Creating...' : 'Create Report'}
-                </button>
-            </form>
-        </div>
-    </div>
-);
+// New Verification Component
+const VerificationPrompt = ({ customer, onSuccess }) => {
+    const [otp, setOtp] = useState('');
+    const [message, setMessage] = useState('');
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [otpSent, setOtpSent] = useState(false);
 
-const InputField = ({ label, name, register, required }) => (<div><label className="block text-sm font-medium text-slate-700 mb-1">{label}</label><input {...register(name, { required })} className="input-field" /></div>);
+    const handleSendOTP = async () => {
+        setLoading(true);
+        setError('');
+        setMessage('');
+        try {
+            const res = await sendPatientOTP(customer.med_id);
+            setMessage(res.data.msg);
+            setOtpSent(true);
+        } catch (err) {
+            setError(err.response?.data?.msg || "Failed to send OTP.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleVerify = async () => {
+        setLoading(true);
+        setError('');
+        try {
+            await verifyPatientOTP(customer.med_id, otp);
+            onSuccess(); // Triggers parent component to show reports
+        } catch (err) {
+            setError(err.response?.data?.msg || "Verification failed.");
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    return (
+        <div className="bg-white p-6 rounded-2xl shadow-sm border text-center">
+            <ShieldCheck className="mx-auto w-12 h-12 text-amber-500 mb-3" />
+            <h3 className="text-lg font-semibold text-slate-800">Verify Access</h3>
+            <p className="text-sm text-slate-500 max-w-md mx-auto mt-1">To protect patient privacy, you must verify access before viewing or creating reports for <strong>{customer.name}</strong>.</p>
+            
+            {!otpSent ? (
+                <button onClick={handleSendOTP} disabled={loading} className="mt-6 px-6 py-2 bg-amber-500 text-white font-semibold rounded-lg hover:bg-amber-600 disabled:bg-amber-300">
+                    {loading ? <Loader2 className="animate-spin" /> : 'Send Verification Code to Patient'}
+                </button>
+            ) : (
+                <div className="mt-6 max-w-sm mx-auto space-y-3">
+                    <p className="text-sm text-emerald-700 bg-emerald-50 p-2 rounded-md">{message}</p>
+                    <div className="flex gap-3">
+                        <input
+                            type="text"
+                            value={otp}
+                            onChange={(e) => setOtp(e.target.value)}
+                            placeholder="Enter 6-digit OTP"
+                            className="input-field flex-grow"
+                        />
+                        <button onClick={handleVerify} disabled={loading} className="px-5 py-2 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 disabled:bg-emerald-400">
+                            {loading ? <Loader2 className="animate-spin" /> : 'Verify'}
+                        </button>
+                    </div>
+                </div>
+            )}
+            {error && <p className="text-sm text-red-600 mt-4">{error}</p>}
+        </div>
+    );
+};
+
+
+// Report Creation Modal (simplified)
+const ReportFormModal = ({ customer, onClose, onSubmit, formMethods }) => {
+    const [loading, setLoading] = useState(false);
+    const { register, handleSubmit } = formMethods;
+
+    const handleFormSubmit = async (data) => {
+        setLoading(true);
+        await onSubmit(data);
+        setLoading(false);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+            <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-2xl relative">
+                <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><X size={24} /></button>
+                <h3 className="text-lg font-semibold text-slate-800 mb-4">New Report For: {customer.name}</h3>
+                <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
+                    <InputField label="Report Title" name="title" register={register} required />
+                    <TextAreaField label="Summary" name="summary" register={register} required rows="6" />
+                    <InputField label="File URL (Optional)" name="fileUrl" register={register} />
+                    <button type="submit" disabled={loading} className="w-full py-2.5 px-4 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700 disabled:bg-emerald-400">
+                        {loading ? <Loader2 className="animate-spin" /> : 'Create Report'}
+                    </button>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+// Helper Components
+const InputField = ({ label, ...props }) => (<div><label className="block text-sm font-medium text-slate-700 mb-1">{label}</label><input {...props} className="input-field" /></div>);
 const TextAreaField = ({ label, name, register, ...rest }) => (<div><label className="block text-sm font-medium text-slate-700 mb-1">{label}</label><textarea {...register(name)} {...rest} className="input-field" /></div>);
 const Placeholder = ({ text }) => (<div className="text-center py-20 text-slate-400"><Search size={40} className="mx-auto mb-3" /><p>{text}</p></div>);
 
