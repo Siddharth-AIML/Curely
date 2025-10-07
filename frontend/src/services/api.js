@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API = axios.create({ baseURL: 'http://localhost:3001/api' });
+const API = axios.create({ baseURL: 'https://curely.onrender.com/api' });
 
 API.interceptors.request.use((req) => {
   const token = localStorage.getItem('token');
