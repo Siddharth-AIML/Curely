@@ -37,7 +37,7 @@ export default function CustomerSignup() {
         setLoading(true); // Show loading state
 
         try {
-            const res = await fetch("http://localhost:3001/api/auth/signup/customer", {
+            const res = await fetch("https://curely.onrender.com/api/auth/signup/customer", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ name, age, gender, email, password })
