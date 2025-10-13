@@ -1,0 +1,89 @@
+/* Styling for the interactive Questionnaire component */
+
+.questionnaire-container {
+/* Ensures container takes available space but allows dashboard styling */
+height: 100%;
+}
+
+.question-card {
+min-height: 100px;
+display: flex;
+flex-direction: column;
+justify-content: center;
+}
+
+/* Rating Selector Group */
+.rating-selector-group {
+display: flex;
+justify-content: space-between;
+gap: 0.5rem;
+margin-bottom: 0.5rem;
+}
+
+.rating-option {
+flex: 1;
+display: flex;
+align-items: center;
+justify-content: center;
+padding: 0.75rem 0.25rem;
+border: 2px solid #e5e7eb;
+border-radius: 0.5rem;
+cursor: pointer;
+font-weight: 700;
+font-size: 1.1rem;
+color: #4b5563;
+transition: all 0.2s ease-in-out;
+}
+
+.rating-option:hover {
+border-color: #93c5fd;
+background-color: #eff6ff;
+}
+
+.rating-option.selected {
+border-color: #3b82f6; /* Tailwind Blue (Matches selected button in your chat UI) */
+background-color: #3b82f6;
+color: white;
+box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+}
+
+/* Rating Scale */
+.rating-scale {
+display: flex;
+justify-content: space-between;
+align-items: center;
+margin-top: 0.3rem;
+font-size: 0.75rem;
+color: #6b7280;
+padding: 0 0.25rem;
+}
+
+.scale-min {
+color: #10b981; /* Green */
+font-weight: 500;
+}
+
+.scale-max {
+color: #ef4444; /* Red */
+font-weight: 500;
+}
+
+/* Progress Bar */
+.progress-bar-group {
+margin-bottom: 1.5rem;
+}
+
+.progress-bar {
+background-color: #e5e7eb;
+height: 8px;
+border-radius: 4px;
+overflow: hidden;
+}
+
+.progress-fill {
+height: 100%;
+/* Gradient adapted from your app's existing blue/emerald scheme */
+background: linear-gradient(90deg, #10b981, #3b82f6);
+transition: width 0.4s ease-in-out;
+border-radius: 4px;
+}
