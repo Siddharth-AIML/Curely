@@ -53,7 +53,7 @@ const labSchema = mongoose.Schema(
 );
 
 // --- Instance Methods ---
-
+/*
 // Compare input password with hashed password
 labSchema.methods.matchPassword = async function (enteredPassword) {
     return await bcrypt.compare(enteredPassword, this.password);
@@ -68,7 +68,7 @@ labSchema.pre('save', async function (next) {
     }
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
-});
+});*/
 
 
 const Lab = mongoose.model('Lab', labSchema);

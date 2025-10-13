@@ -15,7 +15,7 @@ const DoctorSchema = new mongoose.Schema({
     pincode: { type: String, required: true },
     clinic_name: { type: String, required: true },
     address: { type: String, required: true },
-    verification: {type: Boolean, default: true}
+    verification: {type: Boolean, default: false}
 });
 
 module.exports = mongoose.model("Doctor", DoctorSchema);
