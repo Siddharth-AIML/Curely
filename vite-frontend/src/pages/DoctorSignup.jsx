@@ -48,7 +48,7 @@ export default function DoctorSignup() {
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:3001/api/auth/signup/doctor", {
+      const res = await fetch("https://curely-backend-api-awaygqhcgthzdnha.southindia-01.azurewebsites.net/api/auth/signup/doctor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData)
