@@ -11,7 +11,28 @@ const chatRoutes = require('./routes/chatRoutes');
 connectDB();
 
 // Middleware
-app.use(cors());
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://curely-wb5f-l4hmjkg8y-siddharth-aimls-projects.vercel.app"
+];
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      if (!allowedOrigins.includes(origin)) {
+        return callback(new Error("CORS not allowed"), false);
+      }
+      return callback(null, true);
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"]
+  })
+);
+
+app.options("*", cors());
+
 app.use(express.json());
 
 // ----------------------------------------------------------------------------------
