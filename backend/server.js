@@ -13,16 +13,18 @@ connectDB();
 // Middleware
 const allowedOrigins = [
   "http://localhost:5173",
-  "https://curely-wb5f-l4hmjkg8y-siddharth-aimls-projects.vercel.app"
+  "http://localhost:3000"
 ];
 
 app.use(
   cors({
     origin: function (origin, callback) {
       if (!origin) return callback(null, true);
+
       if (!allowedOrigins.includes(origin)) {
         return callback(new Error("CORS not allowed"), false);
       }
+
       return callback(null, true);
     },
     credentials: true,
@@ -31,7 +33,7 @@ app.use(
   })
 );
 
-app.options("*", cors());
+app.options(/.*/, cors());
 
 app.use(express.json());
 

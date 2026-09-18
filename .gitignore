@@ -1,0 +1,79 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+!.env.template
+*.local
+*.secret
+
+# Node.js logs and debug files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+*.log
+
+# Frontend and bundler output
+dist/
+**/dist/
+build/
+**/build/
+coverage/
+**/coverage/
+.vite/
+**/.vite/
+.vercel/
+
+# Python caches, tooling, and virtual environments
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+env/
+ENV/
+backend_chatbot/.venv/
+backend_chatbot/venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+pip-wheel-metadata/
+*.egg-info/
+
+# Runtime uploads and generated reports
+backend/routes/uploads/reports/*
+!backend/routes/uploads/reports/.gitkeep
+
+# Local databases and generated data
+*.sqlite
+*.sqlite3
+*.db
+*.tmp
+*.temp
+
+# IDE settings
+.vscode/
+.idea/
+*.code-workspace
+
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Temporary and backup files
+*.bak
+*.swp
+*.swo
+*~
+tmp/
+temp/

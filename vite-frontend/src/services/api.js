@@ -1,6 +1,6 @@
 import axios from 'axios';
 const API = axios.create({ 
-    baseURL: 'https://curely-backend-api-awaygqhcgthzdnha.southindia-01.azurewebsites.net/api' 
+    baseURL: 'http://localhost:3001/api' 
 });
 
 // Axios Interceptor to automatically attach the JWT token to every request
