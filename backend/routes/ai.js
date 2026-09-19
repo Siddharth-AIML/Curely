@@ -95,5 +95,53 @@ router.post(
     }
 );
 
+router.post(
+    "/brain-mri-analysis",
+    protect,
+    isCustomerOrDoctor,
+    upload.single("file"),
+    async (req, res) => {
+        try {
+            if (!req.file) {
+                return res.status(400).json({
+                    message: "MRI scan is required"
+                });
+            }
+
+            const form = new FormData();
+            form.append("file", req.file.buffer, {
+                filename: req.file.originalname,
+                contentType: req.file.mimetype
+            });
+
+            const response = await axios.post(
+                `${process.env.AI_SERVICE_URL || "http://127.0.0.1:8000"}/predict/brain-mri`,
+                form,
+                {
+                    headers: form.getHeaders(),
+                    timeout: 120000
+                }
+            );
+
+            res.json(response.data);
+        } catch (error) {
+            console.error("Brain MRI AI error:", error.message);
+
+            if (error instanceof multer.MulterError) {
+                const message = error.code === "LIMIT_FILE_SIZE"
+                    ? "Please choose an MRI scan smaller than 10 MB."
+                    : error.message;
+                return res.status(400).json({ message });
+            }
+
+            const status = error.response?.status === 400 ? 400 : 503;
+            res.status(status).json({
+                message: status === 400
+                    ? "The selected MRI scan could not be analyzed."
+                    : "Brain MRI analysis service unavailable"
+            });
+        }
+    }
+);
 
 module.exports = router;

@@ -79,3 +79,7 @@ tmp/
 temp/
 data/
 node_modules/
+# AI model checkpoints
+ai-service/models/*.pth
+ai-service/models/*.pt
+ai-service/models/*.onnx
