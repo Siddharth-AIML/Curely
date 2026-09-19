@@ -64,6 +64,13 @@ app.use("/api/reports", require("./routes/reports")); // For all lab test reques
 // Chat Route
 app.use('/api/chat', chatRoutes); 
 
+const aiRoutes = require("./routes/ai");
+
+app.use(
+    "/api/ai",
+    aiRoutes
+);
+
 app.listen(PORT, () => {
     console.log(`Server Listening at http://localhost:${PORT}`);
 });
