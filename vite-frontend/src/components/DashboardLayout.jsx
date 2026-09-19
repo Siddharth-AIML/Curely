@@ -8,7 +8,8 @@ import {
   LogOut, 
   HeartPulse,
   BookUser,
-  Bot
+  Bot,
+  ScanSearch
 } from 'lucide-react';
 
 const SidebarItem = ({ icon, text, active, onClick, isBeta }) => (
@@ -87,6 +88,10 @@ function Sidebar({ activeItem = 'dashboard', userProfile }) {
          <SidebarItem
           icon={<Bot size={20} />} text="Symptom Checker" isBeta
           active={activeItem === 'symptom-checker'} onClick={() => handleNavigation('/customer/symptom-checker')}
+        />
+        <SidebarItem
+          icon={<ScanSearch size={20} />} text="Skin AI Analysis"
+          active={activeItem === 'skin-ai'} onClick={() => handleNavigation('/customer/skin-ai')}
         />
       </nav>
 

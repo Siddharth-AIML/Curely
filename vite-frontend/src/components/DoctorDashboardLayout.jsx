@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    LayoutDashboard, Calendar, Users, MessageSquare, Settings, LogOut, HeartPulse, BookUser, FileText
+    LayoutDashboard, Calendar, Users, MessageSquare, Settings, LogOut, HeartPulse, BookUser, FileText, ScanSearch
 } from 'lucide-react';
 
 const SidebarItem = ({ icon, text, active, onClick }) => (
@@ -57,6 +57,7 @@ function DoctorSidebar({ activeItem, userProfile }) {
         <SidebarItem icon={<Calendar size={20} />} text="Appointments" active={activeItem === 'appointments'} onClick={() => handleNavigation('/doctor/appointments')} />
         <SidebarItem icon={<BookUser size={20} />} text="Prescriptions" active={activeItem === 'prescriptions'} onClick={() => handleNavigation('/doctor/prescriptions')} />
         <SidebarItem icon={<FileText size={20} />} text="Reports" active={activeItem === 'reports'} onClick={() => handleNavigation('/doctor/reports')} />
+        <SidebarItem icon={<ScanSearch size={20} />} text="Skin AI Analysis" active={activeItem === 'skin-ai'} onClick={() => handleNavigation('/doctor/skin-ai')} />
       </nav>
 
       <div>
