@@ -29,6 +29,12 @@ export const analyzeSkinImage = (file) => {
   return API.post('/ai/skin-analysis', formData);
 };
 
+export const analyzeBrainMRI = (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return API.post('/ai/brain-mri-analysis', formData);
+};
+
 // --- DOCTOR ---
 export const getDoctorProfile = () => API.get('/doctor/profile');
 export const findCustomerByMedId = (id) => API.get(`/doctor/customer/${id}`);

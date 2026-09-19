@@ -90,8 +90,8 @@ function Sidebar({ activeItem = 'dashboard', userProfile }) {
           active={activeItem === 'symptom-checker'} onClick={() => handleNavigation('/customer/symptom-checker')}
         />
         <SidebarItem
-          icon={<ScanSearch size={20} />} text="Skin AI Analysis"
-          active={activeItem === 'skin-ai'} onClick={() => handleNavigation('/customer/skin-ai')}
+          icon={<ScanSearch size={20} />} text="AI Health Analysis"
+          active={activeItem === 'ai-health'} onClick={() => handleNavigation('/customer/ai-health')}
         />
       </nav>
 
