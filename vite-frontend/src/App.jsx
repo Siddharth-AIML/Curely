@@ -24,6 +24,7 @@ import CustomerReports from './pages/CustomerReports.jsx';
 import CustomerSettings from './pages/CustomerSettings.jsx';
 import DoctorSettings from './pages/DoctorSettings.jsx';
 import SymptomChecker from './pages/SymptomChecker.jsx';
+import SkinAIAnalysis from './pages/SkinAIAnalysis.jsx';
 
 export default function App() {
   return (
@@ -47,6 +48,7 @@ export default function App() {
         <Route path="/customer/reports" element={<CustomerReports />} />
         <Route path="/customer/settings" element={<CustomerSettings />} />
         <Route path="/customer/symptom-checker" element={<SymptomChecker />} />
+        <Route path="/customer/skin-ai" element={<SkinAIAnalysis />} />
 
         {/* Doctor Routes */}
         <Route path="/dashboard/doctor" element={<DoctorDashboard />} />
@@ -54,6 +56,7 @@ export default function App() {
         <Route path="/doctor/prescriptions" element={<DoctorPrescriptions />} />
         <Route path="/doctor/reports" element={<DoctorReports />} />
         <Route path="/doctor/settings" element={<DoctorSettings />} />
+        <Route path="/doctor/skin-ai" element={<SkinAIAnalysis />} />
 
         {/* NEW LAB ROUTES */}
         <Route path="/dashboard/lab" element={<LabDashboard />} />

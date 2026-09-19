@@ -1,6 +1,6 @@
 import axios from 'axios';
 const API = axios.create({ 
-    baseURL: 'http://localhost:3001/api' 
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
 });
 
 // Axios Interceptor to automatically attach the JWT token to every request
@@ -23,6 +23,11 @@ export const getCustomerPrescriptions = () => API.get('/medical/customer-prescri
 export const getCustomerReports = () => API.get('/reports/customer/my-reports');
 export const getCustomerAppointments = () => API.get('/appointments/customer');
 export const updateCustomerPassword = (d) => API.put('/customer/password', d);
+export const analyzeSkinImage = (file) => {
+  const formData = new FormData();
+  formData.append('image', file);
+  return API.post('/ai/skin-analysis', formData);
+};
 
 // --- DOCTOR ---
 export const getDoctorProfile = () => API.get('/doctor/profile');
