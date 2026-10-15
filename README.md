@@ -85,7 +85,15 @@ Curely/
 │   │   ├── doctor.js
 │   │   ├── lab.js
 │   │   ├── medical.js
-│   │   └── reports.js
+│   │   ├── reports.js
+│   │   └── symptomChecker.js
+│   │
+│   ├── symptom_service/
+│   │   ├── api.py
+│   │   ├── model_utils.py
+│   │   ├── models/
+│   │   ├── tests/
+│   │   └── utils/
 │   │
 │   ├── uploads/
 │   │   └── Backend-uploaded files
@@ -97,9 +105,6 @@ Curely/
 │   ├── package.json
 │   ├── package-lock.json
 │   └── server.js
-│
-├── backend_chatbot/
-│   └── Existing chatbot implementation
 │
 ├── ai-service/
 │   │
@@ -838,6 +843,114 @@ Large model checkpoints should be managed using Git LFS, a model registry, or an
 
 ---
 
+# 🩺 Symptom Checker
+
+The symptom checker uses the saved classifier in `backend/symptom_service/models/disease_model.pkl`.
+That artifact contains a fitted `MultinomialNB` estimator, its ordered 376 binary
+symptom features, and 500 disease classes. Its saved class and feature counts are
+used as the probability tables for a disease-root Bernoulli Naive Bayes belief
+network, with binary symptom nodes conditionally independent given disease.
+Inference uses the saved class priors and Laplace-smoothed symptom-present
+likelihoods; symptoms not mentioned by the user are marginalized, not assumed
+absent. The original dataset
+`backend/symptom_service/data/diseases.csv` is not included in this checkout,
+so the saved artifact was not retrained here. The service
+validates that the artifact's saved feature counts are valid binary counts and
+reports the source estimator rather than claiming the artifact itself is a
+native BBN.
+
+The symptom vocabulary is generated from the saved model's feature list. Users
+can select multiple supported symptoms or describe them in natural language.
+Exact supported feature names and a small set of conservative aliases are
+mapped to model variables. Unknown terms and absent/uncertain mentions are
+reported rather than silently converted into model evidence. The model receives
+binary presence indicators in the persisted feature order.
+
+The service computes the posterior distribution from the saved network tables.
+Results show the top five classes with their original posterior values; the
+top-five list is not renormalized. These probabilities are uncalibrated and are
+not clinical risks; the tool does not diagnose.
+
+## Run locally
+
+Install the Python dependencies once from the repository root. The pinned
+scikit-learn version (`1.7.2`) matches the serialized artifact's training
+version. On Windows, create the service's virtual environment and install its
+requirements:
+
+```powershell
+python -m venv backend\symptom_service\.venv
+backend\symptom_service\.venv\Scripts\python.exe -m pip install -r backend\symptom_service\requirements.txt
+```
+
+The symptom service starts automatically as a child process when Express starts
+with its default local `SYMPTOM_SERVICE_URL=http://127.0.0.1:5000`. The backend
+uses the virtual environment above automatically; set `SYMPTOM_PYTHON` in
+`backend/.env` only if Python is installed at a different executable path.
+
+Run the application with two commands in separate terminals:
+
+```powershell
+cd backend
+npm start
+```
+
+```powershell
+cd vite-frontend
+npm run dev
+```
+
+The React client uses `VITE_API_URL` (default
+`http://localhost:3001/api`) and sends authenticated requests through Express.
+When using a remote symptom-service URL, the backend will not start a local
+Python service.
+
+## API
+
+Both backend routes require a customer or doctor JWT:
+
+- `GET /api/symptoms/schema` — supported symptoms, aliases, model type, and
+  disease/symptom counts.
+- `POST /api/symptoms/analyze` — accepts `symptom_ids` (canonical IDs from the
+  schema), a natural-language `description`, or both. At least one must be
+  provided. Example request:
+
+```json
+{
+  "symptom_ids": ["headache"],
+  "description": "I also have fever and nausea."
+}
+```
+
+The response includes `recognized_symptoms`, `accepted_evidence`,
+`unsupported_terms` (with non-binding suggestions), `clarifications`,
+`clarification_required`, and `results` (ranked disease labels with the
+network's posterior probabilities). When there is no supported positive
+evidence, `results` is empty and the model is not called. Python service routes
+are `GET /schema` and `POST /analyze`.
+
+Run the Python tests from the repository root with the service virtual
+environment:
+
+```powershell
+backend\symptom_service\.venv\Scripts\python.exe -m unittest discover -s backend\symptom_service\tests
+```
+
+Retraining requires the authorized source dataset at
+`backend/symptom_service/data/diseases.csv` (target column `diseases`):
+
+```powershell
+backend\symptom_service\.venv\Scripts\python.exe backend\symptom_service\train_model.py
+```
+
+The model's capabilities are limited to its saved 376 symptom features and 500
+disease classes. Adding a supported UI term alone does not extend its predictive
+capability; retraining requires suitable labeled data, preprocessing and
+validation, and an updated model artifact. Seek professional medical advice for
+health concerns.
+
+---
+
 # 🔑 Environment Variables
 
 Environment variables should be stored in `.env` files and should never be committed.
@@ -849,6 +962,7 @@ PORT=5000
 MONGO_URI=your_database_url
 JWT_SECRET=your_secret
 AI_SERVICE_URL=http://127.0.0.1:8000
+SYMPTOM_SERVICE_URL=http://127.0.0.1:5000
 ```
 
 Use the actual variables required by your local configuration.

@@ -39,8 +39,8 @@ __pycache__/
 venv/
 env/
 ENV/
-backend_chatbot/.venv/
-backend_chatbot/venv/
+backend/symptom_service/.venv/
+backend/symptom_service/venv/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/

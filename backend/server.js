@@ -1,8 +1,10 @@
 const express = require('express');
+const { spawn, spawnSync } = require('node:child_process');
 const connectDB = require('./config/db');
 const cors = require('cors');
 // Import the 'path' module to work with file paths
-const path = require('path'); 
+const fs = require('node:fs');
+const path = require('node:path');
 const app = express();
 const PORT = process.env.PORT || 3001;
 const chatRoutes = require('./routes/chatRoutes'); 
@@ -71,6 +73,99 @@ app.use(
     aiRoutes
 );
 
-app.listen(PORT, () => {
+app.use("/api/symptoms", require("./routes/symptomChecker"));
+
+const symptomServiceUrl = new URL(
+  process.env.SYMPTOM_SERVICE_URL || 'http://127.0.0.1:5000'
+);
+const localHosts = new Set(['127.0.0.1', 'localhost', '[::1]']);
+let symptomServiceProcess;
+let isShuttingDown = false;
+
+if (localHosts.has(symptomServiceUrl.hostname)) {
+  if (symptomServiceUrl.protocol !== 'http:') {
+    throw new Error('The local symptom service must use HTTP.');
+  }
+
+  const symptomServiceDirectory = path.join(__dirname, 'symptom_service');
+  const virtualEnvironmentPython = path.join(
+    symptomServiceDirectory,
+    '.venv',
+    process.platform === 'win32' ? 'Scripts' : 'bin',
+    process.platform === 'win32' ? 'python.exe' : 'python'
+  );
+  const pythonExecutable = process.env.SYMPTOM_PYTHON
+    || (fs.existsSync(virtualEnvironmentPython)
+      ? virtualEnvironmentPython
+      : process.platform === 'win32' ? 'python' : 'python3');
+  const symptomServiceHost = symptomServiceUrl.hostname === 'localhost'
+    ? '127.0.0.1'
+    : symptomServiceUrl.hostname === '[::1]' ? '::1' : symptomServiceUrl.hostname;
+
+  symptomServiceProcess = spawn(
+    pythonExecutable,
+    [
+      '-m',
+      'uvicorn',
+      'api:app',
+      '--host',
+      symptomServiceHost,
+      '--port',
+      symptomServiceUrl.port || '80',
+    ],
+    {
+      cwd: symptomServiceDirectory,
+      stdio: 'inherit',
+    }
+  );
+  symptomServiceProcess.on('error', (error) => {
+    console.error('Unable to start the symptom service:', error.message);
+  });
+  symptomServiceProcess.on('exit', (code, signal) => {
+    if (!isShuttingDown) {
+      console.error(`Symptom service stopped unexpectedly (code ${code}, signal ${signal}).`);
+    }
+  });
+} else {
+  console.log(`Using external symptom service at ${symptomServiceUrl.origin}.`);
+}
+
+const server = app.listen(PORT, () => {
     console.log(`Server Listening at http://localhost:${PORT}`);
+});
+
+const stopSymptomService = () => {
+  if (
+    !symptomServiceProcess
+    || !symptomServiceProcess.pid
+    || symptomServiceProcess.exitCode !== null
+    || symptomServiceProcess.signalCode !== null
+  ) {
+    return;
+  }
+  if (process.platform === 'win32') {
+    const result = spawnSync(
+      'taskkill',
+      ['/PID', String(symptomServiceProcess.pid), '/T', '/F'],
+      { stdio: 'ignore' }
+    );
+    if (result.error || result.status !== 0) {
+      console.error('Unable to stop the symptom service process tree:', result.error?.message || result.status);
+    }
+    return;
+  }
+  symptomServiceProcess.kill();
+};
+
+const shutdown = () => {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  server.close();
+  stopSymptomService();
+};
+
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
+process.on('exit', () => {
+  if (!isShuttingDown) stopSymptomService();
 });

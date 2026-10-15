@@ -1,46 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import axios from 'axios'; 
 import { Loader2 } from 'lucide-react';
-// FIX: Import useNavigate for redirection
-import { useNavigate } from 'react-router-dom'; 
-
-// --- Helper Functions (Symptom Extraction and Cleaning - Unchanged) ---
-const STOP_WORDS = new Set([
-  'and', 'or', 'the', 'a', 'an', 'i', 'am', 'is', 'are', 'was', 'were', 'have', 'has', 
-  'with', 'but', 'for', 'of', 'in', 'out', 'my', 'his', 'her', 'its', 'their', 'like', 'some', 'any', 
-  'im', 'ive', 'not', 'no', 'so', 'feeling', 'feel', 'i’m', 'to', 'at', 'about', 'terrible', 'bad', 
-  'pain', 'ache', 'sore', 'severe', 'mild', 'chronic', 'sudden',
-  'got', 'having' 
-]);
-
-const extractAndCleanSymptoms = (text) => {
-    const lowerText = text.toLowerCase().trim();
-    
-    const prefixes = [
-        "i am feeling", "i have", "my symptoms are", "i'm feeling", "i feel", 
-        "symptoms", "check for", "im having", "i got"
-    ];
-    let cleanedText = lowerText;
-    for (const prefix of prefixes) {
-        if (lowerText.startsWith(prefix)) {
-            cleanedText = lowerText.substring(prefix.length).trim().replace(/^[,:]\s*/, '');
-            break;
-        }
-    }
-    
-    return cleanedText
-        .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g,"") 
-        .split(/[,\s]+/) 
-        .map((s) => s.trim())
-        .filter(s => s.length > 2 && !STOP_WORDS.has(s));
-};
+import { analyzeSymptoms } from '/src/services/api.js';
 
 const ChatbotUI = ({ onClose }) => {
-    // FIX: Initialize useNavigate
-    const navigate = useNavigate(); 
-    
     const [messages, setMessages] = useState([
-        { sender: 'bot', text: "Hello! I'm CURELY's Symptom Bot. Please list your main symptoms to begin." }
+        { sender: 'bot', text: "Hello! I'm CURELY's Symptom Bot. Describe your symptoms and I will identify which ones the model supports." }
     ]);
     const [input, setInput] = useState('');
     const [isThinking, setIsThinking] = useState(false);
@@ -61,68 +25,41 @@ const ChatbotUI = ({ onClose }) => {
         setIsThinking(true);
 
         try {
-            const symptomsList = extractAndCleanSymptoms(userMessage);
-
-            if (symptomsList.length === 0) {
-                 setMessages(prev => [...prev, { sender: 'bot', text: "I couldn't identify any clear symptoms. Please enter specific symptoms." }]);
-                 setIsThinking(false);
-                 return;
+            const { data } = await analyzeSymptoms({ description: userMessage });
+            const lines = [];
+            if (data.recognized_symptoms?.length) {
+                lines.push(`Recognized and used: ${data.accepted_evidence.map((item) => item.label).join(', ')}.`);
             }
-
-            // Display analysis message before API call
-            setMessages(prev => [...prev, { sender: 'bot', text: `Analyzing symptoms: ${symptomsList.join(', ')}...` }]);
-
-            const response = await axios.post('/bbn-api/questions', { 
-                symptoms: symptomsList 
-            });
-            
-            const questions = response.data.questions;
-            const questionCount = Object.values(questions).flat().length;
-
-
-            if (questions && Object.keys(questions).length > 0) {
-                // FIX: Instead of printing questions, prompt user to go to the full page.
-                setMessages(prev => [...prev, { 
-                    sender: 'bot', 
-                    // Store the symptom data in local storage or context/global state before redirecting
-                    // For now, we'll just redirect and assume the full page handles the flow initiation.
-                    text: `Success! I've found ${questionCount} relevant questions for your assessment. You must use the full dashboard page to answer them.`,
-                    type: 'success',
-                    action: 'redirect' // Custom flag to render the button
-                }]);
+            for (const item of data.unsupported_terms || []) {
+                const suggestions = item.suggestions?.length
+                    ? ` Suggestions: ${item.suggestions.map((suggestion) => suggestion.label).join(', ')}.`
+                    : '';
+                lines.push(`Not supported by the model: "${item.term}".${suggestions}`);
+            }
+            for (const item of data.clarifications || []) {
+                lines.push(`Clarify "${item.symptom.label}": it was reported as ${item.reason}, so it was not used as present evidence.`);
+            }
+            if (data.results?.length) {
+                lines.push('Model-ranked hypotheses (uncalibrated estimates):');
+                data.results.forEach((item, index) => {
+                    lines.push(`${index + 1}. ${item.disease} — ${(item.probability * 100).toFixed(2)}%`);
+                });
             } else {
-                setMessages(prev => [...prev, { 
-                    sender: 'bot', 
-                    text: "I found your symptoms, but I cannot proceed with the assessment. Please try the full Symptom Checker page directly.",
-                    type: 'error'
-                }]);
+                lines.push('No supported positive symptoms were identified, so no model prediction was run.');
             }
+            lines.push('This trained Naive Bayes classifier is not a Bayesian Belief Network and cannot diagnose. Please consult a healthcare professional.');
+            setMessages(prev => [...prev, { sender: 'bot', text: lines.join('\n'), type: 'success' }]);
 
         } catch (error) {
             console.error("Chatbot API error:", error);
-            let errorMessage = "Sorry, I lost connection to the symptom analysis service. Please check the backend server (Port 5000) and try refreshing.";
-            if (error.response && error.response.status === 404) {
-                 errorMessage = "Connection error. Please ensure the Python BBN server is running and the Vite proxy is set up correctly.";
-            }
-
+            const errorMessage = error.response?.data?.message
+                || error.response?.data?.error
+                || "Symptom analysis is temporarily unavailable. Please try again later.";
             setMessages(prev => [...prev, { sender: 'bot', text: errorMessage, type: 'error' }]);
         } finally {
             setIsThinking(false);
         }
     };
-
-    // Component to render the redirection button
-    const RedirectButton = () => (
-        <button
-            onClick={() => {
-                onClose(); // Close the floating chat window
-                navigate('/customer/symptom-checker'); // Redirect to the full page
-            }}
-            style={styles.redirectButton}
-        >
-            Go to Full Assessment →
-        </button>
-    );
 
     return (
         <div style={styles.container}>
@@ -142,16 +79,16 @@ const ChatbotUI = ({ onClose }) => {
                             textAlign: msg.sender === 'user' ? 'right' : 'left'
                         }}
                     >
-                        <span 
+                        <span
                             style={{
                                 ...(msg.sender === 'user' ? styles.userBubble : styles.botBubble),
                                 ...(msg.type === 'success' && styles.successBubble),
                                 ...(msg.type === 'error' && styles.errorBubble),
+                                whiteSpace: 'pre-line',
                             }}
-                            dangerouslySetInnerHTML={{ __html: msg.text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br/>') }}
-                        />
-                         {/* FIX: Render redirect button after success message */}
-                        {msg.type === 'success' && msg.action === 'redirect' && <RedirectButton />}
+                        >
+                            {msg.text}
+                        </span>
                     </div>
                 ))}
                 {/* Thinking Indicator */}

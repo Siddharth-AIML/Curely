@@ -1,372 +1,360 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Search, X, Bot, Loader2, HeartPulse, AlertTriangle } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, HeartPulse, Loader2, Search, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '/src/components/DashboardLayout.jsx';
-import { getCustomerProfile, getAllDoctors } from '/src/services/api.js';
-import Questionnaire from '/src/components/Questionnaire.jsx';
+import { analyzeSymptoms, getCustomerProfile, getSymptomSchema } from '/src/services/api.js';
+import {
+    getSymptomErrorMessage,
+    isSymptomAnalysisResponse,
+    isSymptomSchemaResponse,
+} from './symptomCheckerUtils.js';
 
-// --- Placeholder Imports for BBN Components (Ensure these are correct) ---
-// You MUST import these components from their actual paths:
-// import Questionnaire from '/src/components/Questionnaire.jsx';
-// import DoctorFinder from '/src/components/DoctorFinder.jsx'; 
-
-// Placeholder data since original imports are unavailable. We need a symptom list.
-const allSymptoms = ["fever", "cough", "headache", "joint pain", "sore throat", "fatigue", "nausea", "vomiting", "chest pain"]; 
-
-// --- URGENCY THRESHOLD (50%) ---
-const URGENCY_THRESHOLD = 0.50;
-
-// --- DYNAMIC STATE MAPPING FOR FLOW ---
-const FLOW_STEPS = {
-    SELECT: 'select', 
-    QUESTIONS: 'questions',
-    RESULTS: 'results', 
-    URGENT_DOCTOR: 'urgent_doctor' 
-};
-
-// Local DoctorCard definition (as it was in your original file)
-const DoctorCard = ({ doctor }) => (
-  <div className="bg-slate-50 p-4 rounded-lg border flex items-center justify-between gap-4">
-    <div className="flex items-center gap-4">
-      <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${doctor.name}`} alt={doctor.name} className="w-12 h-12 rounded-full" />
-      <div>
-        <h4 className="font-bold text-slate-800">Dr. {doctor.name}</h4>
-        <p className="text-xs text-emerald-700 font-medium">{doctor.specialization}</p>
-      </div>
-    </div>
-    <Link to="/customer/appointments" className="text-sm font-semibold text-emerald-600 hover:text-emerald-800 bg-emerald-100 hover:bg-emerald-200 px-3 py-1 rounded-md transition-colors">
-      Book Now
-    </Link>
-  </div>
-);
-
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 export default function SymptomChecker() {
     const [userProfile, setUserProfile] = useState(null);
-    const [doctors, setDoctors] = useState([]);
+    const [schema, setSchema] = useState(null);
+    const [schemaError, setSchemaError] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedSymptoms, setSelectedSymptoms] = useState([]);
+    const [selectedIds, setSelectedIds] = useState([]);
+    const [description, setDescription] = useState('');
+    const [result, setResult] = useState(null);
+    const [apiError, setApiError] = useState('');
     const [loading, setLoading] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
     const navigate = useNavigate();
 
-    // --- BBN FLOW STATES ---
-    const [currentFlowStep, setCurrentFlowStep] = useState(FLOW_STEPS.SELECT);
-    const [questions, setQuestions] = useState({}); 
-    const [allAnswers, setAllAnswers] = useState({}); 
-    const [currentPrediction, setCurrentPrediction] = useState(null); 
-    const [isPredicting, setIsPredicting] = useState(false);
-    const [apiError, setApiError] = useState(null);
-    
-    // NOTE: Geolocation state is typically handled in App.jsx or a central provider. 
-    // For simplicity, we are omitting explicit geolocation requests here, but the DoctorFinder will need this data.
-
     useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            try {
-                const [profileRes, doctorsRes] = await Promise.all([getCustomerProfile(), getAllDoctors()]);
-                setUserProfile(profileRes.data);
-                setDoctors(doctorsRes.data);
-            } catch (err) {
-                if (err.response?.status === 401) navigate('/login');
-            } finally {
-                setLoading(false);
+        let mounted = true;
+        Promise.all([
+            getSymptomSchema(),
+            getCustomerProfile().catch((error) => {
+                if (error.response?.status === 401) navigate('/login');
+                return null;
+            }),
+        ]).then(([schemaResponse, profileResponse]) => {
+            const data = schemaResponse.data;
+            if (!isSymptomSchemaResponse(data)) {
+                throw new Error('The supported symptom vocabulary is unavailable.');
             }
+            if (mounted) {
+                setSchema(data);
+                if (profileResponse) setUserProfile(profileResponse.data);
+            }
+        }).catch((error) => {
+            if (mounted) setSchemaError(getSymptomErrorMessage(error));
+        }).finally(() => {
+            if (mounted) setLoading(false);
+        });
+        return () => {
+            mounted = false;
         };
-        fetchData();
     }, [navigate]);
 
-    // --- SYMPTOM SELECTION LOGIC (Unchanged) ---
-    const handleSelectSymptom = (symptom) => {
-        if (!selectedSymptoms.includes(symptom)) {
-            setSelectedSymptoms([...selectedSymptoms, symptom]);
-        }
-        setSearchTerm('');
-        setCurrentFlowStep(FLOW_STEPS.SELECT); 
-    };
-
-    const handleRemoveSymptom = (symptom) => {
-        setSelectedSymptoms(selectedSymptoms.filter(s => s !== symptom));
-        setCurrentFlowStep(FLOW_STEPS.SELECT);
-    };
-
+    const symptomsById = useMemo(
+        () => new Map((schema?.symptoms || []).map((symptom) => [symptom.id, symptom])),
+        [schema],
+    );
     const filteredSymptoms = useMemo(() => {
-        if (!searchTerm) return [];
-        return allSymptoms.filter(symptom =>
-            symptom.toLowerCase().includes(searchTerm.toLowerCase()) && !selectedSymptoms.includes(symptom)
-        ).slice(0, 5);
-    }, [searchTerm, selectedSymptoms]);
+        const query = searchTerm.trim().toLowerCase();
+        if (!query) return [];
+        return (schema?.symptoms || [])
+            .filter((symptom) => (
+                !selectedIds.includes(symptom.id)
+                && `${symptom.name} ${(symptom.aliases || []).join(' ')}`.toLowerCase().includes(query)
+            ))
+            .slice(0, 8);
+    }, [schema, searchTerm, selectedIds]);
 
+    const addSymptom = (symptomId) => {
+        setSelectedIds((previous) => previous.includes(symptomId) ? previous : [...previous, symptomId]);
+        setSearchTerm('');
+        setResult(null);
+        setApiError('');
+    };
 
-    // --- 2. BBN FLOW INITIATION ---
-    const handleInitiateQuestionnaire = async () => {
-        if (selectedSymptoms.length === 0) return;
-        setIsPredicting(true);
-        setApiError(null);
+    const removeSymptom = (symptomId) => {
+        setSelectedIds((previous) => previous.filter((id) => id !== symptomId));
+        setResult(null);
+    };
 
+    const handleUseSuggestion = (term, suggestion) => {
+        addSymptom(suggestion.id);
+        const termPattern = new RegExp(`\\b${escapeRegExp(term)}\\b`, 'i');
+        setDescription((previous) => previous.replace(termPattern, ' ').replace(/\s+/g, ' ').trim());
+    };
+
+    const handleSubmit = async (event) => {
+        event.preventDefault();
+        if (submitting || (!selectedIds.length && !description.trim())) return;
+        setSubmitting(true);
+        setApiError('');
+        setResult(null);
         try {
-            // FIX: Use the /bbn-api/ proxy path for the Python server
-            const res = await fetch("/bbn-api/questions", { 
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ symptoms: selectedSymptoms }), 
+            const response = await analyzeSymptoms({
+                symptom_ids: selectedIds,
+                description,
             });
-
-            if (!res.ok) throw new Error("Backend connection failed or returned error.");
-            
-            const data = await res.json();
-            setIsPredicting(false);
-
-            if (data.questions && Object.keys(data.questions).length > 0) {
-                setQuestions(data.questions);
-                setAllAnswers({}); 
-                setCurrentFlowStep(FLOW_STEPS.QUESTIONS); 
-            } else {
-                handleFinalPrediction({});
+            if (!isSymptomAnalysisResponse(response.data)) {
+                throw new Error('The symptom service returned an invalid response.');
             }
-        } catch (err) {
-            console.error("Question fetch error:", err);
-            setIsPredicting(false);
-            setApiError("Could not connect to the BBN service. Check console/vite.config.js for proxy errors.");
+            setResult(response.data);
+        } catch (error) {
+            setApiError(getSymptomErrorMessage(error));
+        } finally {
+            setSubmitting(false);
         }
-    };
-    
-    // --- 3. QUESTIONNAIRE ANSWER FLOW (Logic depends on Questionnaire component) ---
-    const handleQuestionSubmit = (symptom, question, value) => {
-        const newAnswers = {
-            ...allAnswers,
-            [symptom]: { ...allAnswers[symptom], [question]: value, },
-        };
-        setAllAnswers(newAnswers);
-
-        const allSymptomKeys = Object.keys(questions);
-        let allQuestionsAnswered = true;
-
-        for (const s of allSymptomKeys) {
-            const questionsForSymptom = questions[s];
-            const answeredCount = newAnswers[s] ? Object.keys(newAnswers[s]).length : 0;
-            if (answeredCount < questionsForSymptom.length) {
-                allQuestionsAnswered = false;
-                break;
-            }
-        }
-        
-        if (allQuestionsAnswered) {
-            handleFinalPrediction(newAnswers);
-        } 
-    };
-
-    // --- 4. FINAL PREDICTION CALL ---
-    const handleFinalPrediction = async (finalAnswers) => {
-        setIsPredicting(true);
-        setApiError(null);
-
-        const formattedRatings = {};
-        for (const symptom in finalAnswers) {
-            const values = Object.values(finalAnswers[symptom]).map((v) => Number(v));
-            formattedRatings[symptom] = values.reduce((a, b) => a + b, 0) / values.length || 0;
-        }
-
-        try {
-            // FIX: Use the /bbn-api/ proxy path for prediction
-            const res = await fetch("/bbn-api/predict", { 
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ symptom_ratings: formattedRatings }),
-            });
-
-            if (!res.ok) throw new Error("Prediction API call failed.");
-            
-            const data = await res.json();
-            setIsPredicting(false);
-
-            const topResults = data.top_3_diseases || [];
-            
-            // Urgency threshold check: probability is usually stored in index [1] of the array result
-            const topProbability = topResults.length > 0 ? (topResults[0].probability || topResults[0][1]) : 0;
-            
-            if (topProbability >= URGENCY_THRESHOLD) {
-                 setCurrentPrediction({ 
-                     disease: topResults[0].disease || topResults[0][0],
-                     probability: topProbability 
-                 });
-                 // If threshold met, switch to urgent doctor view
-                 setCurrentFlowStep(FLOW_STEPS.URGENT_DOCTOR);
-            } else {
-                 // Normal results flow
-                 setCurrentPrediction({ results: topResults });
-                 setCurrentFlowStep(FLOW_STEPS.RESULTS);
-            }
-
-        } catch (err) {
-            console.error("Prediction error:", err);
-            setIsPredicting(false);
-            setApiError("Error running prediction. Check if the BBN server is running.");
-        }
-    };
-    
-    // --- 5. RENDER LOGIC ---
-
-    const renderMainContent = () => {
-        // --- API Error State ---
-        if (apiError) {
-             return (
-                <div className="flex flex-col items-center justify-center h-full text-center text-red-500 p-8">
-                     <AlertTriangle size={48} className="mb-4" />
-                     <h3 className="text-xl font-semibold text-red-700">BBN Service Error</h3>
-                     <p className="mt-2 max-w-sm">{apiError}</p>
-                     <p className="text-xs mt-1">Ensure your Python Flask Server is running on **http://127.0.0.1:5000**.</p>
-                     <button onClick={() => setCurrentFlowStep(FLOW_STEPS.SELECT)} className="mt-4 text-sm font-medium text-blue-600 hover:underline">Go Back to Selection</button>
-                </div>
-             );
-        }
-        
-        if (currentFlowStep === FLOW_STEPS.QUESTIONS) {
-            // Placeholder structure for Questionnaire
-            // Inside renderMainContent, where currentFlowStep === FLOW_STEPS.QUESTIONS:
-return (
-    <div className="bg-white p-6 rounded-2xl shadow-sm border h-full">
-        <h3 className="text-xl font-bold text-slate-800">Symptom Severity Assessment</h3>
-        <p className="text-slate-500 mb-4">Please answer the questions below to finalize your assessment.</p>
-        
-        <Questionnaire 
-            questions={questions} 
-            allAnswers={allAnswers} 
-            onSubmit={handleQuestionSubmit} 
-            onFinish={handleFinalPrediction} // Pass the function to trigger prediction when done
-        />
-    </div>
-);
-        }
-
-        if (currentFlowStep === FLOW_STEPS.URGENT_DOCTOR) {
-            // Placeholder structure for DoctorFinder
-            return (
-                <div className="bg-red-50 p-6 rounded-2xl shadow-lg border-red-300 h-full">
-                    <div className="flex items-center gap-2 text-red-700 mb-4">
-                        <AlertTriangle size={24} />
-                        <h3 className="text-xl font-bold">URGENT: High Risk Detected</h3>
-                    </div>
-                    <p className="text-sm text-red-600">
-                        Highest predicted risk: **{currentPrediction.disease}** at **{(currentPrediction.probability * 100).toFixed(1)}%**. 
-                        Please seek immediate consultation.
-                    </p>
-                    {/* You MUST replace this with your DoctorFinder component, passing props: */}
-                    {/* <DoctorFinder highestRiskDisease={currentPrediction.disease} doctors={doctors} /> */}
-                    <div className="py-4 text-center text-red-400">
-                        Doctor Finder UI Here
-                    </div>
-                    <button onClick={() => setCurrentFlowStep(FLOW_STEPS.SELECT)} className="mt-4 w-full text-sm font-medium text-blue-600 hover:underline">Go Back to Selection</button>
-                </div>
-            );
-        }
-
-
-        // --- Normal Results Flow ---
-        if (currentFlowStep === FLOW_STEPS.RESULTS) {
-            const topResult = currentPrediction.results[0];
-            // You'll need to filter doctors based on specialization provided by the BBN response or a local mapping
-            const recommendedDocs = doctors.filter(doc => doc.specialization === topResult.specialization); 
-
-            return (
-                <div className="space-y-6">
-                    <div>
-                        <h3 className="text-lg font-semibold text-slate-800">Preliminary Diagnosis</h3>
-                        <p className="text-2xl font-bold text-emerald-700 mt-1">{topResult.disease || 'Unknown'}</p>
-                        <p className="text-sm text-slate-500 mt-2">Probability: {(topResult.probability * 100).toFixed(1)}%</p>
-                        <p className="mt-3 text-sm text-slate-500">Based on your assessment, your symptoms most closely align with {topResult.disease}. This is not a formal diagnosis.</p>
-                    </div>
-                    
-                    <div>
-                        <h3 className="text-lg font-semibold text-slate-800 mb-4">Recommended Specialists</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {recommendedDocs.length > 0 ? recommendedDocs.map(doc => (
-                                <DoctorCard key={doc._id} doctor={doc} />
-                            )) : <p className="text-sm text-slate-500">No matching specialists found in the database.</p>}
-                        </div>
-                    </div>
-                    <button onClick={() => setCurrentFlowStep(FLOW_STEPS.SELECT)} className="mt-4 text-sm font-medium text-blue-600 hover:underline">Start New Assessment</button>
-                </div>
-            );
-        }
-
-        // Default case: FLOW_STEPS.SELECT (Symptom Selection UI Placeholder)
-        return (
-            <div className="flex flex-col items-center justify-center h-full text-center text-slate-500">
-                 <HeartPulse size={48} className="text-slate-300 mb-4" />
-                 <h3 className="text-lg font-semibold text-slate-700">Start Your Assessment</h3>
-                 <p className="max-w-xs mt-1 text-sm">Use the search bar on the left to add your symptoms and click "Start Assessment".</p>
-            </div>
-        );
     };
 
     return (
         <DashboardLayout activeItem="symptom-checker" userProfile={userProfile}>
             <div className="mb-8">
-                <h1 className="text-3xl font-bold text-slate-800 flex items-center gap-3">
-                    Symptom Checker <span className="text-xs bg-sky-100 text-sky-700 font-bold py-1 px-3 rounded-full">Beta</span>
+                <h1 className="flex items-center gap-3 text-3xl font-bold text-slate-800">
+                    Symptom Checker
+                    <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-bold text-sky-700">Beta</span>
                 </h1>
-                <p className="text-slate-500 mt-1">Describe your symptoms to get a preliminary diagnosis and find a specialist.</p>
+                <p className="mt-1 text-slate-500">
+                    Select model-supported symptoms or describe them in your own words.
+                </p>
             </div>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-full">
-                {/* Left Column: Symptom Selection */}
-                <div className="lg:col-span-1 bg-white p-6 rounded-2xl shadow-sm border space-y-6 self-start">
+
+            {loading ? (
+                <div className="rounded-2xl border bg-white p-10 text-center" role="status">
+                    <Loader2 className="mx-auto animate-spin text-emerald-600" size={30} />
+                    <p className="mt-3 text-slate-600">Loading supported symptoms...</p>
+                </div>
+            ) : schemaError ? (
+                <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-5 text-red-700" role="alert">
+                    <AlertTriangle className="mt-0.5 shrink-0" />
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">Search for your symptoms</label>
-                        <div className="relative">
-                            <input
-                                type="text"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                placeholder="e.g., Headache, Fever..."
-                                className="w-full pl-10 pr-4 py-2 text-sm border border-slate-300 rounded-lg"
-                                disabled={currentFlowStep !== FLOW_STEPS.SELECT}
-                            />
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                        <p className="font-semibold">Symptom vocabulary unavailable</p>
+                        <p className="mt-1 text-sm">{schemaError}</p>
+                    </div>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                    <form onSubmit={handleSubmit} className="space-y-6 self-start rounded-2xl border bg-white p-6 shadow-sm lg:col-span-1">
+                        <div>
+                            <label htmlFor="symptom-search" className="mb-2 block text-sm font-medium text-slate-700">
+                                Search supported symptoms
+                            </label>
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                                <input
+                                    id="symptom-search"
+                                    type="search"
+                                    value={searchTerm}
+                                    onChange={(event) => setSearchTerm(event.target.value)}
+                                    placeholder="Search the model's symptom vocabulary"
+                                    className="w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                                    autoComplete="off"
+                                />
+                            </div>
+                            {filteredSymptoms.length > 0 && (
+                                <ul className="mt-2 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg" aria-label="Matching supported symptoms">
+                                    {filteredSymptoms.map((symptom) => (
+                                        <li key={symptom.id}>
+                                            <button
+                                                type="button"
+                                                onClick={() => addSymptom(symptom.id)}
+                                                className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-emerald-50 focus:bg-emerald-50 focus:outline-none"
+                                            >
+                                                <span className="block">{symptom.name}</span>
+                                                {symptom.aliases?.length > 0 && (
+                                                    <span className="text-xs text-slate-500">
+                                                        Also known as: {symptom.aliases.join(', ')}
+                                                    </span>
+                                                )}
+                                            </button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                            {searchTerm && filteredSymptoms.length === 0 && (
+                                <p className="mt-2 text-xs text-slate-500">
+                                    No exact vocabulary match. You can describe it below; unsupported terms will be identified.
+                                </p>
+                            )}
                         </div>
-                        {filteredSymptoms.length > 0 && (
-                            <div className="mt-2 bg-slate-50 border rounded-lg max-h-40 overflow-y-auto absolute z-10 w-[90%] lg:w-[calc(33%-16px)]">
-                                {filteredSymptoms.map(symptom => (
-                                    <div key={symptom} onClick={() => handleSelectSymptom(symptom)} className="px-4 py-2 text-sm text-slate-700 cursor-pointer hover:bg-emerald-100">
-                                        {symptom}
-                                    </div>
-                                ))}
+
+                        <div>
+                            <h2 className="mb-2 text-sm font-semibold text-slate-800">Selected symptoms</h2>
+                            <div className="flex min-h-10 flex-wrap gap-2">
+                                {selectedIds.map((symptomId) => {
+                                    const symptom = symptomsById.get(symptomId);
+                                    if (!symptom) return null;
+                                    return (
+                                        <span key={symptomId} className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-sm text-emerald-800">
+                                            {symptom.name}
+                                            <button
+                                                type="button"
+                                                onClick={() => removeSymptom(symptomId)}
+                                                aria-label={`Remove ${symptom.name}`}
+                                                className="rounded-full text-emerald-700 hover:text-emerald-950"
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        </span>
+                                    );
+                                })}
+                                {selectedIds.length === 0 && <p className="text-sm text-slate-400">No symptoms selected.</p>}
+                            </div>
+                        </div>
+
+                        <div>
+                            <label htmlFor="symptom-description" className="mb-2 block text-sm font-medium text-slate-700">
+                                Or describe your symptoms
+                            </label>
+                            <textarea
+                                id="symptom-description"
+                                value={description}
+                                onChange={(event) => {
+                                    setDescription(event.target.value);
+                                    setResult(null);
+                                }}
+                                maxLength={1000}
+                                rows={4}
+                                placeholder="For example: I have a headache, fever, and nausea."
+                                className="w-full resize-y rounded-lg border border-slate-300 p-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                            />
+                            <p className="mt-1 text-right text-xs text-slate-400">{description.length}/1000</p>
+                        </div>
+
+                        {apiError && (
+                            <div role="alert" className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                                <AlertTriangle size={18} className="mt-0.5 shrink-0" />
+                                <span>{apiError}</span>
                             </div>
                         )}
-                    </div>
+                        <button
+                            type="submit"
+                            disabled={submitting || (!selectedIds.length && !description.trim())}
+                            className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-300"
+                        >
+                            {submitting ? <Loader2 size={18} className="animate-spin" /> : <HeartPulse size={18} />}
+                            {submitting ? 'Analyzing with model...' : 'Analyze symptoms'}
+                        </button>
+                    </form>
 
-                    <div>
-                        <h4 className="text-md font-semibold text-slate-800 mb-3">Selected Symptoms</h4>
-                        <div className="flex flex-wrap gap-2 min-h-[40px]">
-                            {selectedSymptoms.map(symptom => (
-                                <div key={symptom} className="flex items-center gap-2 bg-emerald-100 text-emerald-800 text-sm font-medium px-3 py-1 rounded-full">
-                                    {symptom}
-                                    <button onClick={() => handleRemoveSymptom(symptom)} className="text-emerald-600 hover:text-emerald-900"><X size={14} /></button>
+                    <section className="min-h-[500px] rounded-2xl border bg-white p-6 shadow-sm lg:col-span-2" aria-live="polite">
+                        {!result ? (
+                            <div className="flex h-full min-h-[400px] flex-col items-center justify-center text-center text-slate-500">
+                                <HeartPulse size={48} className="mb-4 text-slate-300" />
+                                <h2 className="text-lg font-semibold text-slate-700">Model-ranked hypotheses</h2>
+                                <p className="mt-2 max-w-md text-sm">
+                                    Your selected and recognized symptoms will be evaluated together by the saved Naive Bayes model.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="space-y-6">
+                                <div>
+                                    <h2 className="text-xl font-bold text-slate-800">Model-ranked hypotheses</h2>
+                                    <p className="mt-1 text-sm text-slate-500">
+                                        {result.model_name} · {result.probability_description || 'No model probability available.'}
+                                    </p>
                                 </div>
-                            ))}
-                            {selectedSymptoms.length === 0 && <p className="text-sm text-slate-400">No symptoms selected.</p>}
-                        </div>
-                    </div>
-                    
-                    <button 
-                        onClick={handleInitiateQuestionnaire} 
-                        disabled={selectedSymptoms.length === 0 || isPredicting || currentFlowStep !== FLOW_STEPS.SELECT} 
-                        className="w-full py-3 px-4 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700 disabled:bg-emerald-400 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors duration-150"
-                    >
-                        {isPredicting ? <Loader2 size={18} className="animate-spin" /> : <Bot size={18} />} 
-                        {isPredicting ? 'Analyzing...' : 'Start Assessment'}
-                    </button>
-                </div>
 
-                {/* Right Column: Prediction/Questionnaire/Results */}
-                <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border min-h-[500px]">
-                    {renderMainContent()}
+                                {result.recognized_symptoms.length > 0 && (
+                                    <div>
+                                        <h3 className="mb-2 text-sm font-semibold text-slate-700">Symptoms recognized and used</h3>
+                                        <div className="flex flex-wrap gap-2">
+                                            {result.accepted_evidence.map((item) => (
+                                                <span key={item.id} className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700">
+                                                    {item.label}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {result.unsupported_terms.length > 0 && (
+                                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                                        <h3 className="font-semibold text-amber-900">Please review unsupported terms</h3>
+                                        <p className="mt-1 text-sm text-amber-800">
+                                            These terms are not model evidence. They were not used in the result.
+                                        </p>
+                                        <ul className="mt-3 space-y-3">
+                                            {result.unsupported_terms.map((item) => (
+                                                <li key={item.term} className="text-sm text-amber-900">
+                                                    <span className="font-medium">“{item.term}”</span>
+                                                    {item.suggestions?.length > 0 && (
+                                                        <div className="mt-2 flex flex-wrap gap-2">
+                                                            {item.suggestions.map((suggestion) => (
+                                                                <button
+                                                                    key={suggestion.id}
+                                                                    type="button"
+                                                                    onClick={() => handleUseSuggestion(item.term, suggestion)}
+                                                                    className="rounded-full border border-amber-300 bg-white px-3 py-1 text-xs text-amber-900 hover:bg-amber-100"
+                                                                >
+                                                                    Use “{suggestion.label}”
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+
+                                {result.clarifications.length > 0 && (
+                                    <div className="rounded-lg border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
+                                        <h3 className="font-semibold">Clarification needed</h3>
+                                        <p className="mt-1">Absent, uncertain, or conflicting reports were not treated as present evidence.</p>
+                                        <ul className="mt-2 list-inside list-disc">
+                                            {result.clarifications.map((item, index) => (
+                                                <li key={`${item.symptom.id}-${index}`}>
+                                                    {item.symptom.label}: {item.reason.replaceAll('_', ' ')}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+
+                                {result.results.length > 0 ? (
+                                    <ol className="space-y-3">
+                                        {result.results.map((item, index) => (
+                                            <li key={item.disease} className="rounded-xl border border-slate-200 p-4">
+                                                <div className="flex items-center justify-between gap-4">
+                                                    <div>
+                                                        <span className="mr-2 text-xs font-semibold text-slate-400">#{index + 1}</span>
+                                                        <span className="font-semibold capitalize text-slate-800">{item.disease}</span>
+                                                    </div>
+                                                    <span className="shrink-0 font-semibold text-emerald-700">
+                                                        {(item.probability * 100).toFixed(2)}%
+                                                    </span>
+                                                </div>
+                                                <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+                                                    <div
+                                                        className="h-full rounded-full bg-emerald-500"
+                                                        style={{ width: `${Math.min(item.probability * 100, 100)}%` }}
+                                                    />
+                                                </div>
+                                            </li>
+                                        ))}
+                                    </ol>
+                                ) : (
+                                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+                                        No supported positive symptoms were identified, so the model was not run.
+                                        Select a symptom or clarify your description to continue.
+                                    </div>
+                                )}
+
+                                <p className="border-t pt-4 text-xs leading-relaxed text-slate-500">
+                                    The disease-root Bernoulli Naive Bayes network uses class and binary symptom counts
+                                    from the saved {result.source_estimator || 'Naive Bayes'} estimator. The stored artifact
+                                    is not a separately serialized BBN, and its training dataset is not present in this checkout.
+                                    Probabilities are uncalibrated, not clinical risk estimates or a diagnosis.
+                                    Only the listed recognized evidence was used. Consult a qualified healthcare professional.
+                                </p>
+                            </div>
+                        )}
+                    </section>
                 </div>
-            </div>
-            {/* Disclaimer for medical advice */}
-            <p className="text-center text-xs text-red-500 mt-4 italic">Disclaimer: This symptom checker is for informational purposes only and is not a substitute for professional medical advice.</p>
+            )}
+            <p className="mt-5 text-center text-xs italic text-red-600">
+                For informational use only. This tool cannot diagnose or replace professional medical advice.
+            </p>
         </DashboardLayout>
     );
 }
-

@@ -44,6 +44,8 @@ export const extractDiabetesReport = (file) => {
 export const predictDiabetesRisk = (payload) => API.post('/ai/diabetes-predict', payload);
 export const getKidneyPredictionSchema = () => API.get('/ai/kidney/schema');
 export const predictKidneyDisease = (payload) => API.post('/ai/kidney/predict', payload);
+export const getSymptomSchema = () => API.get('/symptoms/schema');
+export const analyzeSymptoms = (payload) => API.post('/symptoms/analyze', payload);
 
 // --- DOCTOR ---
 export const getDoctorProfile = () => API.get('/doctor/profile');
