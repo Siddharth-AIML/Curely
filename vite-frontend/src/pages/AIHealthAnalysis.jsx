@@ -14,6 +14,7 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout.jsx';
 import DoctorDashboardLayout from '../components/DoctorDashboardLayout.jsx';
+import KidneyDiseasePrediction from './KidneyDiseasePrediction.jsx';
 import {
     analyzeBrainMRI,
     analyzeSkinImage,
@@ -48,9 +49,9 @@ const AI_ANALYSES = [
     },
     {
         id: 'kidney',
-        title: 'Kidney Stone Analysis',
-        description: 'Coming soon',
-        available: false,
+        title: 'Kidney Disease Prediction',
+        description: 'Tabular clinical screening using the supplied kidney disease dataset',
+        available: true,
     },
 ];
 
@@ -122,7 +123,7 @@ export default function AIHealthAnalysis() {
                         </div>
                         <div>
                             <h1 className="text-3xl font-bold text-slate-800">AI Health Analysis</h1>
-                            <p className="text-slate-500 mt-1">AI-assisted decision support for skin and brain imaging analysis.</p>
+                            <p className="text-slate-500 mt-1">AI-assisted screening for clinical indicators and medical imaging.</p>
                         </div>
                     </div>
 
@@ -168,7 +169,8 @@ export default function AIHealthAnalysis() {
                 {selectedAnalysisId === 'skin' && <SkinAnalysisPanel />}
                 {selectedAnalysisId === 'brain' && <BrainMRIAnalysisPanel />}
                 {selectedAnalysisId === 'diabetes' && <DiabetesRiskAssessmentPanel />}
-                {selectedAnalysisId !== 'skin' && selectedAnalysisId !== 'brain' && selectedAnalysisId !== 'diabetes' && (
+                {selectedAnalysisId === 'kidney' && <KidneyDiseasePrediction />}
+                {selectedAnalysisId !== 'skin' && selectedAnalysisId !== 'brain' && selectedAnalysisId !== 'diabetes' && selectedAnalysisId !== 'kidney' && (
                     <section className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm">
                         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-slate-500">
                             <Sparkles size={28} />
