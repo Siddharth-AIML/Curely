@@ -1,23 +1,23 @@
 # Curely — AI-Powered Healthcare Management Platform
 
-Curely is a full-stack healthcare management platform designed to connect **patients, doctors, and diagnostic laboratories** through a secure role-based system, while providing AI-assisted medical analysis and intelligent healthcare workflows.
-
-The platform combines a web-based healthcare management system with a dedicated AI service for medical image analysis and explainable AI.
+Curely is a full-stack healthcare management and clinical decision-support project
+for **patients, doctors, and diagnostic laboratories**. It combines role-based
+healthcare workflows (appointments, patient records, prescriptions, and lab
+reports) with AI-assisted image, tabular-data, and symptom analysis. AI results
+are informational screening outputs for review by a qualified professional;
+they are not diagnoses.
 
 ---
 
 ## 🚀 Overview
 
-Curely provides a centralized platform where:
-
-- Patients can manage their healthcare information.
-- Doctors can manage patients and review medical information.
-- Doctors can refer patients to laboratories.
-- Patients can securely authorize access to their laboratory reports using OTP verification.
-- Laboratories can manage diagnostic reports.
-- AI models can assist with medical image analysis.
-- AI predictions can be accompanied by explainability visualizations such as Grad-CAM.
-- The system is designed around **doctor-in-the-loop clinical decision support**, rather than autonomous diagnosis.
+Curely provides a React web client, an Express/MongoDB application API, a
+FastAPI AI API, and a separate FastAPI symptom-analysis service that Express
+starts automatically on local development machines. The AI API currently
+provides skin-lesion classification with Grad-CAM, brain-MRI segmentation,
+diabetes screening and report OCR, and kidney-disease screening. The symptom
+checker supports model-backed symptom selection and conservative natural
+language mapping.
 
 ---
 
@@ -33,30 +33,27 @@ Curely provides a centralized platform where:
                                     ▼
                          ┌──────────────────────┐
                          │   Express Backend    │
-                         │                      │
-                         │ Authentication       │
-                         │ Authorization        │
-                         │ Business Logic       │
-                         │ API Routes            │
+                         │ Auth, roles, APIs    │
                          └───────┬───────┬──────┘
                                  │       │
-                       Database  │       │ AI Requests
-                                 │       │
-                                 ▼       ▼
-                         ┌──────────┐  ┌──────────────────┐
-                         │ Database │  │   FastAPI AI     │
-                         │          │  │     Service      │
-                         └──────────┘  └────────┬─────────┘
-                                               │
-                                               ▼
-                                     ┌────────────────────┐
-                                     │    AI/ML Models    │
-                                     │                    │
-                                     │ Skin Analysis      │
-                                     │ Grad-CAM           │
-                                     │ Future AI Models   │
-                                     └────────────────────┘
+                         MongoDB │       ├───────────────┐
+                                 │       │               │
+                                 ▼       ▼               ▼
+                         ┌──────────┐ ┌────────────┐ ┌───────────────────┐
+                         │ MongoDB  │ │ FastAPI AI │ │ Symptom FastAPI   │
+                         │ records  │ │ port 8000  │ │ port 5000         │
+                         └──────────┘ └─────┬──────┘ └─────────┬─────────┘
+                                            │                  │
+                                            ▼                  ▼
+                                  Image/tabular/OCR models   Symptom model
 ```
+
+The browser talks to Express, not directly to either Python API. Express
+authenticates users, applies role checks, validates requests, and proxies
+inference calls. The symptom API is launched as a child process of Express when
+`SYMPTOM_SERVICE_URL` points to a local loopback address. The general AI API
+(`ai-service`) remains an independently started service for the skin, brain,
+diabetes, and kidney features.
 
 ---
 
@@ -65,99 +62,56 @@ Curely provides a centralized platform where:
 ```text
 Curely/
 │
-├── backend/
-│   │
-│   ├── config/
-│   │   └── Database/configuration files
-│   │
-│   ├── middleware/
-│   │   └── Authentication and authorization middleware
-│   │
-│   ├── models/
-│   │   └── Database models
-│   │
-│   ├── routes/
-│   │   ├── ai.js
-│   │   ├── appointment.js
-│   │   ├── auth.js
-│   │   ├── chatRoutes.js
-│   │   ├── customer.js
-│   │   ├── doctor.js
-│   │   ├── lab.js
-│   │   ├── medical.js
-│   │   ├── reports.js
-│   │   └── symptomChecker.js
-│   │
-│   ├── symptom_service/
+├── backend/                         # Express API, MongoDB, auth and domain routes
+│   ├── config/db.js
+│   ├── middleware/authMiddleware.js
+│   ├── models/                      # Customer, doctor, lab, appointment, report...
+│   ├── routes/                      # Auth, appointments, reports, AI proxies...
+│   ├── symptom_service/             # Python symptom API, model and mapping
 │   │   ├── api.py
 │   │   ├── model_utils.py
-│   │   ├── models/
-│   │   ├── tests/
-│   │   └── utils/
-│   │
-│   ├── uploads/
-│   │   └── Backend-uploaded files
-│   │
+│   │   ├── models/disease_model.pkl
+│   │   ├── utils/symptom_mapping.py
+│   │   ├── train_model.py
+│   │   └── tests/
+│   ├── test/                        # Express route tests
 │   ├── utils/
-│   │   └── Utility functions
-│   │
-│   ├── .env
 │   ├── package.json
-│   ├── package-lock.json
-│   └── server.js
-│
-├── ai-service/
-│   │
-│   ├── data/
-│   │   ├── raw/
-│   │   │   └── HAM10000 dataset
-│   │   └── processed/
-│   │
-│   ├── models/
-│   │   ├── skin_model_best.pth
-│   │   ├── skin_model_sampler_best.pth
-│   │   ├── training_history.json
-│   │   ├── training_history_sampler.json
-│   │   └── Grad-CAM outputs
-│   │
-│   ├── services/
-│   │   ├── explainability.py
-│   │   ├── preprocessing.py
-│   │   ├── skin_gradcam.py
-│   │   └── skin_predictor.py
-│   │
+│   └── server.js                    # Starts Express and local symptom API
+├── ai-service/                      # Separate FastAPI inference/training service
+│   ├── app.py                       # Skin, brain, diabetes and kidney endpoints
+│   ├── services/                    # Model inference, OCR and Grad-CAM
 │   ├── training/
-│   │   ├── dataset.py
-│   │   ├── model.py
-│   │   ├── train.py
-│   │   ├── evaluate.py
-│   │   ├── split_dataset.py
-│   │   └── check_split.py
-│   │
-│   ├── uploads/
-│   │   └── Runtime AI uploads
-│   │
-│   ├── results/
-│   │   └── Generated AI results
-│   │
-│   ├── app.py
-│   ├── test_gradcam.py
+│   │   ├── brain/
+│   │   ├── diabetes/
+│   │   ├── kidney/
+│   │   ├── dataset.py, model.py, train.py, evaluate.py  # Skin pipeline
+│   │   └── split_dataset.py, check_split.py
+│   ├── models/
+│   │   ├── skin_model_sampler_best.pth
+│   │   ├── brain_unet_best.pth
+│   │   ├── diabetes/diabetes_xgboost.joblib + metadata
+│   │   └── kidney/kidney_pipeline.joblib + metadata
+│   ├── tests/
+│   ├── data/                        # Local datasets; not all are committed
+│   ├── uploads/                     # Runtime uploaded files
+│   ├── results/                     # Runtime masks, overlays and output
 │   └── requirements.txt
-│
 ├── vite-frontend/
-│   │
-│   ├── public/
 │   ├── src/
-│   ├── eslint.config.js
-│   ├── index.html
+│   │   ├── components/
+│   │   ├── pages/                   # Customer, doctor, lab and AI screens
+│   │   ├── services/api.js
+│   │   └── utils/
+│   ├── public/
 │   ├── package.json
-│   ├── package-lock.json
-│   ├── vercel.json
 │   └── vite.config.js
-│
 ├── .gitignore
 └── README.md
 ```
+
+Datasets, virtual environments, caches, uploaded files, and generated output
+directories may exist locally without being tracked in Git.
 
 ---
 
@@ -232,7 +186,7 @@ npm start
 
 # 3. AI Service — `ai-service`
 
-The AI service is an independent Python microservice built using:
+The general AI service is an independent Python microservice built using:
 
 - Python
 - FastAPI
@@ -245,15 +199,39 @@ The AI service is an independent Python microservice built using:
 - NumPy
 - Pillow
 
-The AI service is separated from the Express backend so that machine-learning inference and training dependencies remain isolated from the Node.js application.
+It is separate from Express so model inference and machine-learning dependencies
+remain isolated from the Node.js application. Express authenticates requests and
+proxies them to this service using `AI_SERVICE_URL`.
 
 ---
 
-# 🧠 Current AI Module — Skin Disease Analysis
+# 🧠 Implemented AI and Symptom Models
 
-The first integrated AI module performs skin lesion classification using the **HAM10000 dataset**.
+These are the model-backed features currently exposed by the FastAPI AI service
+and the symptom-analysis service. Each produces a screening or analysis result;
+none is a diagnosis. See the sections below for API details and training notes.
 
-## Model
+| Feature | Model / method | Input and processing | Output |
+|---|---|---|---|
+| Skin lesions | ImageNet-initialized EfficientNet-B0, fine-tuned for seven HAM10000 classes | Dermoscopic image resized to 224×224 and ImageNet-normalized; prediction uses the saved sampler-trained checkpoint | Ranked class probabilities and a Grad-CAM overlay |
+| Brain MRI | U-Net convolutional segmentation model | MRI image resized to 256×256, normalized per image; sigmoid mask thresholded at 0.5 | Tumor-region segmentation, overlay, detected flag, and estimated mask area; this is segmentation, not tumor-type classification |
+| Diabetes screening | Saved XGBoost binary-classification pipeline trained on eight Pima-style features | Zero values in five measurement fields are treated as missing and imputed using the fitted pipeline; optional Tree SHAP explanation | Model-estimated probability/category and up to five contributing features when SHAP works |
+| Diabetes report extraction | OpenCV image enhancement + Tesseract OCR + field parsing; no predictive model | Report image is grayscaled, enlarged and contrast-enhanced before text extraction and parsing of diabetes-related measurements | Extracted values for review; OCR output should be checked before using it as model input |
+| Kidney screening | Saved scikit-learn pipeline; selected Extra Trees classifier | 24 numeric and categorical features, with imputation, scaling and one-hot encoding inside the fitted pipeline | CKD/not-CKD class and model probabilities |
+| Symptom checker | Saved MultinomialNB training artifact used to derive a disease-root Bernoulli Naive Bayes network | Up to 100 selected symptom IDs and/or up to 1,000 characters of text; exact feature names and curated aliases are mapped, while negative/uncertain mentions are not treated as positive evidence | Recognized evidence, clarifications, unsupported terms, and up to five uncalibrated posterior class probabilities |
+
+The skin, brain, diabetes, and kidney endpoints are hosted by `ai-service`.
+The symptom schema and inference endpoints are hosted by
+`backend/symptom_service`; Express launches that local service automatically.
+The symptom classifier's saved artifact contains 376 symptom features and 500
+disease labels. Its original training dataset is not included in this checkout.
+The kidney model uses the supplied 400-row historical dataset; the diabetes
+artifact records an evaluation on 768 rows. These dataset-specific scores are
+not evidence of clinical performance or external validation.
+
+## Skin lesion classification
+
+The skin feature uses the **HAM10000** dermoscopic-image dataset.
 
 The current model uses:
 
@@ -303,9 +281,9 @@ The dataset is split at the **lesion level** to reduce data leakage between trai
 
 ---
 
-# 📊 Current Model Performance
+# 📊 Recorded Skin Model Performance
 
-The current sampler-based experiment achieved approximately:
+The repository's recorded sampler-based experiment reports:
 
 | Metric | Result |
 |---|---:|
@@ -315,7 +293,9 @@ The current sampler-based experiment achieved approximately:
 | Weighted F1 | 85.28% |
 | Macro ROC-AUC | 96.81% |
 
-The model is intended for **AI-assisted analysis and clinical decision support**.
+These are experiment results on the project's dataset split, not independent
+clinical validation. The model is intended for **AI-assisted analysis and
+clinical decision support**.
 
 It should not be interpreted as an autonomous medical diagnosis.
 
@@ -418,7 +398,15 @@ Current endpoints:
 GET  /
 GET  /health
 POST /predict/skin
+POST /predict/brain-mri
+POST /extract/diabetes-report
+POST /predict/diabetes
+GET  /predict/kidney/schema
+POST /predict/kidney
 ```
+
+The kidney schema endpoint returns the feature names, units, and allowed
+categories used by the installed kidney pipeline.
 
 ---
 
@@ -485,6 +473,58 @@ The generated visualization is saved to the configured output path.
 
 ---
 
+# 🧠 Brain MRI Segmentation
+
+`POST /predict/brain-mri` accepts an MRI image. The service loads the saved
+`brain_unet_best.pth` U-Net checkpoint, resizes the input to 256×256, predicts a
+per-pixel probability mask, and applies a 0.5 threshold. It returns a
+segmentation image, a red-overlay visualization, whether any pixels crossed
+the threshold, and the fraction of the image marked by the mask. The returned
+area is a model-mask fraction, not a clinical tumor-volume measurement. This
+checkpoint performs segmentation; it does not identify tumor subtype or make a
+diagnosis.
+
+Training and evaluation code is under `ai-service/training/brain/`. The
+training dataset and patient-level split files are expected under
+`ai-service/data/brain_mri/`; those source data are not bundled with the
+checkpoint.
+
+---
+
+# 🩸 Diabetes Screening and Report Extraction
+
+## Risk screening model
+
+`POST /predict/diabetes` uses the saved XGBoost pipeline at
+`ai-service/models/diabetes/diabetes_xgboost.joblib`. It accepts the eight
+Pima-style inputs: pregnancies, glucose, blood pressure, skin thickness,
+insulin, BMI, diabetes pedigree function, and age. The predictor treats zero
+values in glucose, blood pressure, skin thickness, insulin, and BMI as missing
+and applies the fitted imputer before asking XGBoost for the positive-class
+probability. The displayed categories are derived from fixed probability
+bands (`<0.30`: lower, `<0.60`: moderate, otherwise higher); they are UI
+screening bands, not clinical thresholds.
+
+Tree SHAP is optional and used only to explain an already-computed prediction.
+If SHAP is unavailable or explanation fails, inference can still return its
+probability with no factor list. The committed metadata records a 768-row
+evaluation (accuracy 0.741, balanced accuracy 0.684, ROC-AUC 0.819 on its
+stored split). This is an internal dataset result, not clinical validation.
+Training and evaluation scripts are under `ai-service/training/diabetes/`.
+
+## Report image extraction
+
+`POST /extract/diabetes-report` runs image preprocessing and OCR, not the
+XGBoost model: OpenCV grayscales, enlarges and enhances contrast, then
+Tesseract extracts text and application code attempts to parse expected
+diabetes measurements. Tesseract OCR must be installed at
+`C:\Program Files\Tesseract-OCR\tesseract.exe`, the path currently configured
+in `services/diabetes_report_extractor.py`.
+Review extracted values carefully; OCR can misread text and values and does
+not verify whether they are clinically accurate.
+
+---
+
 # 🩺 Kidney Disease Prediction
 
 Curely includes a tabular kidney disease screening workflow in the AI Health
@@ -533,9 +573,6 @@ The selected pipeline and complete training/evaluation metadata are stored at:
 ai-service/models/kidney/kidney_pipeline.joblib
 ai-service/models/kidney/metadata.json
 ```
-
-The pre-existing `kidney_disease_model.pkl` and `kidney_scaler.pkl` artifacts
-are left untouched and are not used by this pipeline.
 
 For the recorded 20% stratified holdout, the selected Extra Trees pipeline
 reported accuracy `0.9875`, balanced accuracy `0.99`, CKD precision `1.00`,
@@ -664,7 +701,7 @@ Laboratory
 
 The Express backend is responsible for determining whether a user has permission to access a particular resource.
 
-The intended architecture is:
+The implemented request path is:
 
 ```text
 React Frontend
@@ -702,7 +739,7 @@ This provides an additional authorization layer for sensitive medical informatio
 
 # 🔄 AI Integration Architecture
 
-The intended production workflow is:
+The implemented request path for the general AI models is:
 
 ```text
 Patient
@@ -715,28 +752,44 @@ Express Backend
    │
    ├── Authentication
    ├── Authorization
-   ├── Patient validation
-   └── Audit / database operations
+   ├── Role and request validation
+   └── File size/type checks
    │
    ▼
-FastAPI AI Service
-   │
-   ▼
-EfficientNet-B0
-   │
-   ├── Prediction
-   ├── Confidence
-   └── Grad-CAM
+FastAPI AI Service (AI_SERVICE_URL)
+   ├── Skin: EfficientNet-B0 + Grad-CAM
+   ├── Brain MRI: U-Net segmentation
+   ├── Diabetes: XGBoost screening / OCR extraction
+   └── Kidney: fitted scikit-learn pipeline
    │
    ▼
 Express Backend
    │
    ▼
-Database
-   │
-   ▼
 React Frontend
 ```
+
+The symptom checker uses the same browser → Express authentication boundary,
+then Express proxies requests to the local symptom FastAPI child process (or an
+external URL configured by `SYMPTOM_SERVICE_URL`). AI results are returned to
+the client; the current routes do not persist prediction results in MongoDB.
+
+| Authenticated Express endpoint | General AI endpoint | Purpose |
+|---|---|---|
+| `POST /api/ai/skin-analysis` | `POST /predict/skin` | Skin classification and Grad-CAM |
+| `POST /api/ai/brain-mri-analysis` | `POST /predict/brain-mri` | MRI segmentation |
+| `POST /api/ai/diabetes-extract` | `POST /extract/diabetes-report` | OCR extraction from report image |
+| `POST /api/ai/diabetes-predict` | `POST /predict/diabetes` | Tabular diabetes screening |
+| `GET /api/ai/kidney/schema` | `GET /predict/kidney/schema` | Kidney form schema |
+| `POST /api/ai/kidney/predict` | `POST /predict/kidney` | Tabular kidney screening |
+| `GET /api/symptoms/schema` | `GET /schema` on symptom service | Model-backed symptom vocabulary |
+| `POST /api/symptoms/analyze` | `POST /analyze` on symptom service | Symptom evidence mapping and ranking |
+
+The Express image routes accept JPEG, PNG, and WebP images up to 10 MB and
+require a customer or doctor JWT. The kidney schema/prediction and symptom
+routes also require a customer or doctor JWT. The Python APIs are internal
+inference endpoints; clients should use Express rather than calling them
+directly.
 
 ---
 
@@ -779,18 +832,19 @@ python test_gradcam.py
 
 | File | Purpose |
 |---|---|
-| `ai-service/app.py` | FastAPI application |
-| `ai-service/services/skin_predictor.py` | Skin prediction logic |
-| `ai-service/services/skin_gradcam.py` | Prediction + Grad-CAM |
-| `ai-service/services/preprocessing.py` | Image preprocessing |
-| `ai-service/services/explainability.py` | Explainability utilities |
-| `ai-service/training/model.py` | EfficientNet model architecture |
-| `ai-service/training/dataset.py` | HAM10000 dataset loader |
-| `ai-service/training/train.py` | Model training |
-| `ai-service/training/evaluate.py` | Model evaluation |
-| `ai-service/training/split_dataset.py` | Dataset splitting |
-| `ai-service/training/check_split.py` | Dataset split verification |
-| `ai-service/test_gradcam.py` | Grad-CAM testing |
+| `ai-service/app.py` | FastAPI routes for skin, MRI, diabetes, OCR, and kidney |
+| `ai-service/services/skin_gradcam.py` | Skin inference and Grad-CAM overlay |
+| `ai-service/training/model.py` | EfficientNet-B0 skin classifier definition |
+| `ai-service/services/brain_predictor.py` | U-Net MRI segmentation inference |
+| `ai-service/training/brain/model.py` | U-Net architecture |
+| `ai-service/services/diabetes_predictor.py` | XGBoost inference and optional Tree SHAP |
+| `ai-service/services/diabetes_report_extractor.py` | Image OCR and field extraction |
+| `ai-service/services/kidney_predictor.py` | Kidney pipeline validation and inference |
+| `ai-service/training/kidney/` | Kidney preprocessing, training, and evaluation |
+| `backend/symptom_service/model_utils.py` | Symptom model loading and posterior inference |
+| `backend/symptom_service/utils/symptom_mapping.py` | Symptom schema, aliases, and text parsing |
+| `backend/routes/ai.js` | Authenticated Express proxy routes for AI API |
+| `backend/routes/symptomChecker.js` | Authenticated Express proxy routes for symptoms |
 
 ---
 
@@ -822,7 +876,8 @@ The dataset should not be committed to the Git repository.
 
 # ⚠️ Git and Large Files
 
-The following files and directories should normally **not** be committed:
+Datasets, runtime uploads, generated results, local environments, and secrets
+should not be committed:
 
 ```text
 .venv/
@@ -830,16 +885,15 @@ node_modules/
 __pycache__/
 .env
 
-ai-service/data/raw/
+ai-service/data/
 ai-service/uploads/
 ai-service/results/
-
-*.pth
-*.pt
-*.onnx
 ```
 
-Large model checkpoints should be managed using Git LFS, a model registry, or another artifact-storage solution if they need to be versioned.
+The current checkout includes the trained inference artifacts under
+`ai-service/models/` and `backend/symptom_service/models/`. These artifacts
+are required to run the included models. Larger or frequently updated
+checkpoints are better stored using Git LFS or a model registry.
 
 ---
 
@@ -884,11 +938,13 @@ backend\symptom_service\.venv\Scripts\python.exe -m pip install -r backend\sympt
 ```
 
 The symptom service starts automatically as a child process when Express starts
-with its default local `SYMPTOM_SERVICE_URL=http://127.0.0.1:5000`. The backend
-uses the virtual environment above automatically; set `SYMPTOM_PYTHON` in
-`backend/.env` only if Python is installed at a different executable path.
+with the default local `SYMPTOM_SERVICE_URL=http://127.0.0.1:5000`. The backend
+uses the virtual environment above if present; otherwise it uses `python` on
+Windows or `python3` on other platforms. If the Python executable is not on
+`PATH`, set `SYMPTOM_PYTHON` in `backend/.env` to its full path.
 
-Run the application with two commands in separate terminals:
+To use only the healthcare web application and symptom checker, run the
+frontend and backend in two terminals:
 
 ```powershell
 cd backend
@@ -903,7 +959,10 @@ npm run dev
 The React client uses `VITE_API_URL` (default
 `http://localhost:3001/api`) and sends authenticated requests through Express.
 When using a remote symptom-service URL, the backend will not start a local
-Python service.
+Python service. To use skin, brain MRI, diabetes, or kidney features as well,
+also start the independent `ai-service` on port 8000; all AI features together
+therefore require three manually started processes (frontend, Express, and
+general AI API), while the symptom API is managed by Express.
 
 ## API
 
@@ -958,14 +1017,19 @@ Environment variables should be stored in `.env` files and should never be commi
 Example:
 
 ```env
-PORT=5000
+PORT=3001
 MONGO_URI=your_database_url
 JWT_SECRET=your_secret
 AI_SERVICE_URL=http://127.0.0.1:8000
 SYMPTOM_SERVICE_URL=http://127.0.0.1:5000
 ```
 
-Use the actual variables required by your local configuration.
+`PORT`, `MONGO_URI`, and `JWT_SECRET` configure Express. `AI_SERVICE_URL`
+points to the separately started general AI API. `SYMPTOM_SERVICE_URL` defaults
+to the local child service; point it elsewhere only when using a separately
+hosted symptom API. `SYMPTOM_PYTHON` is optional and selects the executable
+used to start the local symptom service. Configure `VITE_API_URL` in the
+frontend environment only if the Express API is not at its default URL.
 
 ---
 
@@ -993,62 +1057,25 @@ Use the actual variables required by your local configuration.
 - FastAPI
 - PyTorch
 - Torchvision
-- EfficientNet-B0
+- EfficientNet-B0 and U-Net
 - Scikit-learn
+- XGBoost
+- SHAP (optional diabetes explanations)
 - Grad-CAM
+- OpenCV and Tesseract OCR
 - Pandas
+- Joblib
 - NumPy
 - Pillow
 
 ---
 
-# 📈 AI Roadmap
+# 📈 Further AI Roadmap
 
-Curely is being developed toward a broader AI-assisted healthcare platform.
+The following are possible future extensions, not currently implemented
+features:
 
-## 1. Skin Disease Analysis
-
-```text
-Image
-  ↓
-EfficientNet-B0
-  ↓
-Classification
-  ↓
-Grad-CAM
-```
-
-## 2. Brain MRI Analysis
-
-Potential architecture:
-
-```text
-MRI
- ↓
-Preprocessing
- ↓
-Segmentation
- ↓
-Tumor Classification
- ↓
-Explainability
-```
-
-## 3. Medical Report Intelligence
-
-```text
-Lab Report
-     ↓
-OCR
-     ↓
-Information Extraction
-     ↓
-Structured Medical Data
-     ↓
-Abnormal Value Detection
-```
-
-## 4. Patient Record Intelligence
+## Authorized patient-record assistant
 
 A retrieval-based healthcare assistant can provide authorized access to:
 
@@ -1058,9 +1085,10 @@ A retrieval-based healthcare assistant can provide authorized access to:
 - Prescriptions
 - AI analysis results
 
-The assistant should retrieve only records that the authenticated user is authorized to access.
+Any such assistant must retrieve only records the authenticated user is
+authorized to access.
 
-## 5. Longitudinal Health Analytics
+## Longitudinal health analytics
 
 ```text
 Historical Medical Records
@@ -1122,25 +1150,48 @@ git clone <repository-url>
 cd Curely
 ```
 
----
+The application has three independently running development processes when
+using all features: the React frontend, Express backend, and general AI API.
+Express automatically starts the symptom FastAPI process as its child when
+using the default local `SYMPTOM_SERVICE_URL`, so it does not need a fourth
+terminal. MongoDB must also be available at `MONGO_URI`.
+
+Install dependencies once:
+
+```powershell
+cd backend
+npm install
+cd ..\vite-frontend
+npm install
+cd ..\ai-service
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+cd ..
+python -m venv backend\symptom_service\.venv
+backend\symptom_service\.venv\Scripts\python.exe -m pip install -r backend\symptom_service\requirements.txt
+```
 
 ## Start Backend
 
+In a terminal, from the repository root:
+
 ```bash
 cd backend
-npm install
 npm start
 ```
+
+This starts Express on port 3001 and, by default, starts the local symptom API
+on port 5000 as a child process.
 
 ---
 
 ## Start Frontend
 
-Open another terminal:
+In a second terminal, from the repository root:
 
 ```bash
 cd vite-frontend
-npm install
 npm run dev
 ```
 
@@ -1148,12 +1199,13 @@ npm run dev
 
 ## Start AI Service
 
-Open another terminal:
+In a third terminal, from the repository root, for skin, brain, diabetes, and
+kidney analysis:
 
 ```powershell
 cd ai-service
 .\.venv\Scripts\Activate.ps1
-uvicorn app:app --reload --port 8000
+python -m uvicorn app:app --reload --port 8000
 ```
 
 ---
@@ -1162,12 +1214,14 @@ uvicorn app:app --reload --port 8000
 
 | Service | URL |
 |---|---|
-| Frontend | `http://localhost:<frontend-port>` |
-| Express Backend | `http://localhost:<backend-port>` |
-| FastAPI AI Service | `http://127.0.0.1:8000` |
-| FastAPI Swagger | `http://127.0.0.1:8000/docs` |
+| Frontend (Vite) | `http://localhost:5173` |
+| Express Backend | `http://localhost:3001` |
+| General FastAPI AI service | `http://127.0.0.1:8000` |
+| General AI API docs | `http://127.0.0.1:8000/docs` |
+| Symptom API (managed by Express) | `http://127.0.0.1:5000` |
 
-Use the ports configured in the respective environment/configuration files.
+The symptom API is an internal backend dependency; normal browser requests use
+the Express routes under `/api/symptoms`.
 
 ---
 
@@ -1216,33 +1270,29 @@ git push -u origin feature/skin-ai-gradcam
 - [x] Role-based healthcare workflows
 - [x] Patient / Doctor / Laboratory roles
 - [x] Laboratory report authorization workflow
-- [x] AI service architecture
-- [x] HAM10000 preprocessing
-- [x] Lesion-grouped train/validation/test split
-- [x] EfficientNet-B0 skin classifier
-- [x] Class imbalance handling using weighted sampling
-- [x] Model evaluation
-- [x] FastAPI AI service
-- [x] Skin prediction endpoint
-- [x] Grad-CAM explainability
-- [x] Swagger API testing
+- [x] FastAPI AI service with skin, brain MRI, diabetes, OCR, and kidney endpoints
+- [x] EfficientNet-B0 skin classification with Grad-CAM
+- [x] U-Net brain MRI segmentation
+- [x] Diabetes risk screening with optional SHAP feature explanation
+- [x] Diabetes report image OCR and value extraction
+- [x] Schema-driven kidney disease screening pipeline
+- [x] Symptom vocabulary, natural-language evidence mapping, and model-backed ranking
+- [x] Authenticated Express proxy routes for the AI and symptom services
+- [x] Express-managed local startup of the symptom-analysis service
+- [x] Model training/evaluation code and focused tests for implemented pipelines
 
 ## In Progress
 
-- [ ] React skin-analysis interface
-- [ ] Express → FastAPI integration
 - [ ] AI result persistence
 - [ ] Doctor review workflow
 - [ ] AI audit logging
 
 ## Planned
 
-- [ ] Brain MRI analysis
-- [ ] Medical report OCR
 - [ ] Patient-record RAG assistant
 - [ ] Longitudinal health analytics
-- [ ] Additional explainability modules
-- [ ] External validation of medical image models
+- [ ] External clinical validation across independent datasets
+- [ ] Broader audit logging and review workflows for AI results
 
 ---
 
