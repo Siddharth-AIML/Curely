@@ -4,7 +4,8 @@ from pathlib import Path
 import shutil
 import uuid
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+from typing import Literal
 
 try:
     from services.skin_gradcam import predict_with_gradcam
@@ -14,6 +15,11 @@ except ModuleNotFoundError:
 from services.brain_predictor import predict_brain_mri
 from services.diabetes_predictor import get_diabetes_predictor
 from services.diabetes_report_extractor import extract_diabetes_report
+from services.kidney_predictor import (
+    KidneyInputError,
+    KidneyModelUnavailableError,
+    get_kidney_predictor,
+)
 
 app = FastAPI(
     title="Curely AI Service",
@@ -30,6 +36,36 @@ class DiabetesInput(BaseModel):
     bmi: float = Field(ge=0)
     diabetes_pedigree_function: float = Field(ge=0)
     age: float = Field(ge=1)
+
+
+class KidneyInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    age: float = Field(ge=0, allow_inf_nan=False)
+    bp: float = Field(ge=0, allow_inf_nan=False)
+    sg: Literal["1.005", "1.010", "1.015", "1.020", "1.025"]
+    al: Literal["0", "1", "2", "3", "4", "5"]
+    su: Literal["0", "1", "2", "3", "4", "5"]
+    rbc: Literal["normal", "abnormal"]
+    pc: Literal["normal", "abnormal"]
+    pcc: Literal["present", "notpresent"]
+    ba: Literal["present", "notpresent"]
+    bgr: float = Field(ge=0, allow_inf_nan=False)
+    bu: float = Field(ge=0, allow_inf_nan=False)
+    sc: float = Field(ge=0, allow_inf_nan=False)
+    sod: float = Field(ge=0, allow_inf_nan=False)
+    pot: float = Field(ge=0, allow_inf_nan=False)
+    hemo: float = Field(ge=0, allow_inf_nan=False)
+    pcv: float = Field(ge=0, allow_inf_nan=False)
+    wbcc: float = Field(ge=0, allow_inf_nan=False)
+    rbcc: float = Field(ge=0, allow_inf_nan=False)
+    htn: Literal["yes", "no"]
+    dm: Literal["yes", "no"]
+    cad: Literal["yes", "no"]
+    appet: Literal["good", "poor"]
+    pe: Literal["yes", "no"]
+    ane: Literal["yes", "no"]
+
 
 # Directories
 RESULTS_DIR = Path("results")
@@ -193,3 +229,26 @@ def predict_diabetes(payload: DiabetesInput):
         "DiabetesPedigreeFunction": payload.diabetes_pedigree_function,
         "Age": payload.age,
     })
+
+
+@app.get("/predict/kidney/schema")
+def kidney_prediction_schema():
+    try:
+        return get_kidney_predictor().public_schema()
+    except KidneyModelUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.post("/predict/kidney")
+def predict_kidney(payload: KidneyInput):
+    try:
+        return get_kidney_predictor().predict(payload.model_dump())
+    except KidneyInputError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except KidneyModelUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="Kidney prediction could not be completed.",
+        ) from exc

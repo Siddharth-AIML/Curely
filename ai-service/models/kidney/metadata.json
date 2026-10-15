@@ -1,0 +1,706 @@
+{
+  "model_name": "extra_trees",
+  "model_type": "ExtraTreesClassifier",
+  "pipeline": [
+    "median imputation + standard scaling for numeric inputs",
+    "most-frequent imputation + one-hot encoding for categorical inputs",
+    "fitted classifier"
+  ],
+  "input_features": [
+    "age",
+    "bp",
+    "sg",
+    "al",
+    "su",
+    "rbc",
+    "pc",
+    "pcc",
+    "ba",
+    "bgr",
+    "bu",
+    "sc",
+    "sod",
+    "pot",
+    "hemo",
+    "pcv",
+    "wbcc",
+    "rbcc",
+    "htn",
+    "dm",
+    "cad",
+    "appet",
+    "pe",
+    "ane"
+  ],
+  "feature_schema": [
+    {
+      "name": "age",
+      "label": "Age",
+      "type": "numeric",
+      "units": "years",
+      "description": "Patient age",
+      "minimum": 0,
+      "categories": []
+    },
+    {
+      "name": "bp",
+      "label": "Blood pressure",
+      "type": "numeric",
+      "units": "mmHg",
+      "description": "Blood pressure measurement",
+      "minimum": 0,
+      "categories": []
+    },
+    {
+      "name": "sg",
+      "label": "Specific gravity",
+      "type": "categorical",
+      "units": "",
+      "description": "Urine specific gravity",
+      "minimum": null,
+      "categories": [
+        "1.005",
+        "1.010",
+        "1.015",
+        "1.020",
+        "1.025"
+      ]
+    },
+    {
+      "name": "al",
+      "label": "Albumin",
+      "type": "categorical",
+      "units": "level 0-5",
+      "description": "Urine albumin level",
+      "minimum": null,
+      "categories": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5"
+      ]
+    },
+    {
+      "name": "su",
+      "label": "Sugar",
+      "type": "categorical",
+      "units": "level 0-5",
+      "description": "Urine sugar level",
+      "minimum": null,
+      "categories": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5"
+      ]
+    },
+    {
+      "name": "rbc",
+      "label": "Red blood cells",
+      "type": "categorical",
+      "units": "",
+      "description": "Urine red blood cell result",
+      "minimum": null,
+      "categories": [
+        "normal",
+        "abnormal"
+      ]
+    },
+    {
+      "name": "pc",
+      "label": "Pus cells",
+      "type": "categorical",
+      "units": "",
+      "description": "Urine pus cell result",
+      "minimum": null,
+      "categories": [
+        "normal",
+        "abnormal"
+      ]
+    },
+    {
+      "name": "pcc",
+      "label": "Pus cell clumps",
+      "type": "categorical",
+      "units": "",
+      "description": "Urine pus cell clumps",
+      "minimum": null,
+      "categories": [
+        "present",
+        "notpresent"
+      ]
+    },
+    {
+      "name": "ba",
+      "label": "Bacteria",
+      "type": "categorical",
+      "units": "",
+      "description": "Bacteria in urine",
+      "minimum": null,
+      "categories": [
+        "present",
+        "notpresent"
+      ]
+    },
+    {
+      "name": "bgr",
+      "label": "Random blood glucose",
+      "type": "numeric",
+      "units": "mg/dL",
+      "description": "Random blood glucose",
+      "minimum": 0,
+      "categories": []
+    },
+    {
+      "name": "bu",
+      "label": "Blood urea",
+      "type": "numeric",
+      "units": "mg/dL",
+      "description": "Blood urea",
+      "minimum": 0,
+      "categories": []
+    },
+    {
+      "name": "sc",
+      "label": "Serum creatinine",
+      "type": "numeric",
+      "units": "mg/dL",
+      "description": "Serum creatinine",
+      "minimum": 0,
+      "categories": []
+    },
+    {
+      "name": "sod",
+      "label": "Sodium",
+      "type": "numeric",
+      "units": "mEq/L",
+      "description": "Serum sodium",
+      "minimum": 0,
+      "categories": []
+    },
+    {
+      "name": "pot",
+      "label": "Potassium",
+      "type": "numeric",
+      "units": "mEq/L",
+      "description": "Serum potassium",
+      "minimum": 0,
+      "categories": []
+    },
+    {
+      "name": "hemo",
+      "label": "Hemoglobin",
+      "type": "numeric",
+      "units": "gms (source notation)",
+      "description": "Hemoglobin measurement",
+      "minimum": 0,
+      "categories": []
+    },
+    {
+      "name": "pcv",
+      "label": "Packed cell volume",
+      "type": "numeric",
+      "units": "not stated in dataset info",
+      "description": "Packed cell volume",
+      "minimum": 0,
+      "categories": []
+    },
+    {
+      "name": "wbcc",
+      "label": "White blood cell count",
+      "type": "numeric",
+      "units": "cells/cumm",
+      "description": "White blood cell count",
+      "minimum": 0,
+      "categories": []
+    },
+    {
+      "name": "rbcc",
+      "label": "Red blood cell count",
+      "type": "numeric",
+      "units": "millions/cmm",
+      "description": "Red blood cell count",
+      "minimum": 0,
+      "categories": []
+    },
+    {
+      "name": "htn",
+      "label": "Hypertension",
+      "type": "categorical",
+      "units": "",
+      "description": "Hypertension status",
+      "minimum": null,
+      "categories": [
+        "yes",
+        "no"
+      ]
+    },
+    {
+      "name": "dm",
+      "label": "Diabetes mellitus",
+      "type": "categorical",
+      "units": "",
+      "description": "Diabetes mellitus status",
+      "minimum": null,
+      "categories": [
+        "yes",
+        "no"
+      ]
+    },
+    {
+      "name": "cad",
+      "label": "Coronary artery disease",
+      "type": "categorical",
+      "units": "",
+      "description": "Coronary artery disease status",
+      "minimum": null,
+      "categories": [
+        "yes",
+        "no"
+      ]
+    },
+    {
+      "name": "appet",
+      "label": "Appetite",
+      "type": "categorical",
+      "units": "",
+      "description": "Appetite classification",
+      "minimum": null,
+      "categories": [
+        "good",
+        "poor"
+      ]
+    },
+    {
+      "name": "pe",
+      "label": "Pedal edema",
+      "type": "categorical",
+      "units": "",
+      "description": "Pedal edema status",
+      "minimum": null,
+      "categories": [
+        "yes",
+        "no"
+      ]
+    },
+    {
+      "name": "ane",
+      "label": "Anemia",
+      "type": "categorical",
+      "units": "",
+      "description": "Anemia status",
+      "minimum": null,
+      "categories": [
+        "yes",
+        "no"
+      ]
+    }
+  ],
+  "categorical_encodings": {
+    "sg": [
+      "1.005",
+      "1.010",
+      "1.015",
+      "1.020",
+      "1.025"
+    ],
+    "al": [
+      "0",
+      "1",
+      "2",
+      "3",
+      "4",
+      "5"
+    ],
+    "su": [
+      "0",
+      "1",
+      "2",
+      "3",
+      "4",
+      "5"
+    ],
+    "rbc": [
+      "normal",
+      "abnormal"
+    ],
+    "pc": [
+      "normal",
+      "abnormal"
+    ],
+    "pcc": [
+      "present",
+      "notpresent"
+    ],
+    "ba": [
+      "present",
+      "notpresent"
+    ],
+    "htn": [
+      "yes",
+      "no"
+    ],
+    "dm": [
+      "yes",
+      "no"
+    ],
+    "cad": [
+      "yes",
+      "no"
+    ],
+    "appet": [
+      "good",
+      "poor"
+    ],
+    "pe": [
+      "yes",
+      "no"
+    ],
+    "ane": [
+      "yes",
+      "no"
+    ]
+  },
+  "target_feature": "class",
+  "target_label_mapping": {
+    "notckd": {
+      "encoded_value": 0,
+      "display_label": "No CKD pattern detected"
+    },
+    "ckd": {
+      "encoded_value": 1,
+      "display_label": "CKD pattern detected"
+    }
+  },
+  "positive_class": "ckd",
+  "training_dataset": {
+    "provenance": "Chronic Kidney Disease dataset, source information included in the supplied dataset info file (July 2015).",
+    "source_file": "data/Chronic_Kidney_Disease/chronic_kidney_disease.arff",
+    "source_sha256": "0f3360c0e9239d3d211bfbbdedbe818e4569e6d7399e7398c9b464f6e8feeebe",
+    "comparison": {
+      "same_schema": true,
+      "same_usable_records": true,
+      "primary_rows": 399,
+      "comparison_rows": 399
+    },
+    "usable_rows": 399,
+    "class_counts": {
+      "ckd": 250,
+      "notckd": 149
+    },
+    "missing_values": {
+      "age": 9,
+      "bp": 12,
+      "sg": 47,
+      "al": 46,
+      "su": 49,
+      "rbc": 152,
+      "pc": 65,
+      "pcc": 4,
+      "ba": 4,
+      "bgr": 44,
+      "bu": 19,
+      "sc": 17,
+      "sod": 87,
+      "pot": 88,
+      "hemo": 52,
+      "pcv": 71,
+      "wbcc": 106,
+      "rbcc": 131,
+      "htn": 2,
+      "dm": 2,
+      "cad": 2,
+      "appet": 1,
+      "pe": 1,
+      "ane": 1,
+      "class": 0
+    },
+    "repaired_trailing_empty_cells": [
+      99,
+      102
+    ],
+    "dropped_malformed_rows": [
+      399
+    ]
+  },
+  "training_configuration": {
+    "random_state": 42,
+    "test_size": 0.2,
+    "cross_validation": "5-fold stratified CV on training split",
+    "selection_metric": "mean cross-validation balanced accuracy",
+    "class_imbalance": "class_weight=balanced; no resampling",
+    "candidate_models": [
+      "logistic_regression",
+      "random_forest",
+      "extra_trees"
+    ],
+    "selected_model_parameters": {
+      "bootstrap": false,
+      "ccp_alpha": 0.0,
+      "class_weight": "balanced",
+      "criterion": "gini",
+      "max_depth": null,
+      "max_features": "sqrt",
+      "max_leaf_nodes": null,
+      "max_samples": null,
+      "min_impurity_decrease": 0.0,
+      "min_samples_leaf": 2,
+      "min_samples_split": 2,
+      "min_weight_fraction_leaf": 0.0,
+      "monotonic_cst": null,
+      "n_estimators": 400,
+      "n_jobs": -1,
+      "oob_score": false,
+      "random_state": 42,
+      "verbose": 0,
+      "warm_start": false
+    }
+  },
+  "cross_validation_results": {
+    "logistic_regression": {
+      "accuracy": {
+        "mean": 0.9842757936507937,
+        "std": 0.01984350185858307,
+        "folds": [
+          1.0,
+          1.0,
+          1.0,
+          0.953125,
+          0.9682539682539683
+        ]
+      },
+      "balanced_accuracy": {
+        "mean": 0.9875,
+        "std": 0.015811388300841892,
+        "folds": [
+          1.0,
+          1.0,
+          1.0,
+          0.9625,
+          0.975
+        ]
+      },
+      "precision": {
+        "mean": 1.0,
+        "std": 0.0,
+        "folds": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "recall": {
+        "mean": 0.975,
+        "std": 0.031622776601683784,
+        "folds": [
+          1.0,
+          1.0,
+          1.0,
+          0.925,
+          0.95
+        ]
+      },
+      "f1": {
+        "mean": 0.987079587079587,
+        "std": 0.016375221541569847,
+        "folds": [
+          1.0,
+          1.0,
+          1.0,
+          0.961038961038961,
+          0.9743589743589743
+        ]
+      },
+      "roc_auc": {
+        "mean": 0.9997826086956522,
+        "std": 0.00043478260869562747,
+        "folds": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          0.9989130434782609
+        ]
+      }
+    },
+    "random_forest": {
+      "accuracy": {
+        "mean": 0.9874503968253968,
+        "std": 0.018230499492361496,
+        "folds": [
+          1.0,
+          1.0,
+          0.953125,
+          1.0,
+          0.9841269841269841
+        ]
+      },
+      "balanced_accuracy": {
+        "mean": 0.985,
+        "std": 0.024238399287081644,
+        "folds": [
+          1.0,
+          1.0,
+          0.9375,
+          1.0,
+          0.9875
+        ]
+      },
+      "precision": {
+        "mean": 0.9860465116279069,
+        "std": 0.02790697674418605,
+        "folds": [
+          1.0,
+          1.0,
+          0.9302325581395349,
+          1.0,
+          1.0
+        ]
+      },
+      "recall": {
+        "mean": 0.9949999999999999,
+        "std": 0.010000000000000009,
+        "folds": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          0.975
+        ]
+      },
+      "f1": {
+        "mean": 0.9902394387677292,
+        "std": 0.014073510548919787,
+        "folds": [
+          1.0,
+          1.0,
+          0.963855421686747,
+          1.0,
+          0.9873417721518988
+        ]
+      },
+      "roc_auc": {
+        "mean": 0.999375,
+        "std": 0.0012500000000000178,
+        "folds": [
+          1.0,
+          1.0,
+          0.996875,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    "extra_trees": {
+      "accuracy": {
+        "mean": 0.9875,
+        "std": 0.018221724671391562,
+        "folds": [
+          0.984375,
+          1.0,
+          1.0,
+          0.953125,
+          1.0
+        ]
+      },
+      "balanced_accuracy": {
+        "mean": 0.9899999999999999,
+        "std": 0.014577379737113242,
+        "folds": [
+          0.9875,
+          1.0,
+          1.0,
+          0.9625,
+          1.0
+        ]
+      },
+      "precision": {
+        "mean": 1.0,
+        "std": 0.0,
+        "folds": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "recall": {
+        "mean": 0.9800000000000001,
+        "std": 0.029154759474226483,
+        "folds": [
+          0.975,
+          1.0,
+          1.0,
+          0.925,
+          1.0
+        ]
+      },
+      "f1": {
+        "mean": 0.9896761466381718,
+        "std": 0.015134619572327555,
+        "folds": [
+          0.9873417721518988,
+          1.0,
+          1.0,
+          0.961038961038961,
+          1.0
+        ]
+      },
+      "roc_auc": {
+        "mean": 1.0,
+        "std": 0.0,
+        "folds": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    }
+  },
+  "holdout_metrics": {
+    "accuracy": 0.9875,
+    "balanced_accuracy": 0.99,
+    "precision_ckd": 1.0,
+    "recall_ckd": 0.98,
+    "f1_ckd": 0.98989898989899,
+    "roc_auc_ckd": 1.0,
+    "confusion_matrix_labels": [
+      "notckd",
+      "ckd"
+    ],
+    "confusion_matrix": [
+      [
+        30,
+        0
+      ],
+      [
+        1,
+        49
+      ]
+    ]
+  },
+  "class_probability_semantics": "The classifier's predict_proba output for class ckd; a model estimate, not a calibrated clinical certainty or diagnosis.",
+  "limitations": [
+    "Small historical dataset with missing values and a single source.",
+    "No external clinical validation has been performed.",
+    "One structurally malformed row was excluded rather than guessed."
+  ],
+  "trained_at_utc": "2026-10-15T14:20:06.365121+00:00",
+  "python_version": "3.10.0",
+  "library_versions": {
+    "scikit_learn": "1.7.2",
+    "pandas": "2.3.3",
+    "numpy": "2.2.6",
+    "joblib": "1.6.0"
+  },
+  "artifact": "kidney_pipeline.joblib"
+}

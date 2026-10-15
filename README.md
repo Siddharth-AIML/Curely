@@ -480,6 +480,173 @@ The generated visualization is saved to the configured output path.
 
 ---
 
+# 🩺 Kidney Disease Prediction
+
+Curely includes a tabular kidney disease screening workflow in the AI Health
+Analysis experience. The frontend loads the supported input schema from the AI
+service and submits it through the authenticated Express API.
+
+## Dataset and model
+
+Training data is supplied under
+`ai-service/data/Chronic_Kidney_Disease/`:
+
+- `chronic_kidney_disease.arff`
+- `chronic_kidney_disease_full.arff`
+- `chronic_kidney_disease.info.txt`
+
+The two ARFF files have matching schemas and matching normalized usable rows.
+They declare 24 predictors in this order:
+
+```text
+age, bp, sg, al, su, rbc, pc, pcc, ba, bgr, bu, sc,
+sod, pot, hemo, pcv, wbcc, rbcc, htn, dm, cad, appet, pe, ane
+```
+
+The numeric features are `age` (years), `bp` (mmHg), `bgr` and `bu` (mg/dL),
+`sc` (mg/dL), `sod` and `pot` (mEq/L), `hemo` (source notation `gms`), `pcv` (units not stated in the supplied info
+file), `wbcc`
+(cells/cumm), and `rbcc` (millions/cmm). Nominal features are `sg` (specific
+gravity), `al` (albumin level 0-5), `su` (sugar level 0-5), `rbc`, `pc`, `pcc`,
+`ba`, `htn`, `dm`, `cad`, `appet`, `pe`, and `ane`. Their allowed categories
+are declared in `metadata.json` and served by the schema API.
+
+The target is `class`; the verified dataset labels are `ckd` and `notckd`.
+The training metadata maps encoded class `1` to `ckd` and class `0` to
+`notckd`. Training compares Logistic Regression, Random Forest, and Extra Trees
+using five-fold stratified cross-validation and selects by mean balanced
+accuracy. Numeric median imputation and standard scaling, and nominal
+most-frequent imputation and one-hot encoding, are part of the fitted
+scikit-learn pipeline, so preprocessing is learned only within training folds.
+No oversampling is used; candidate estimators use class weights.
+
+Two rows with a superfluous trailing empty cell are repaired. One malformed
+row with an ambiguous extra nominal value is excluded instead of guessing.
+The selected pipeline and complete training/evaluation metadata are stored at:
+
+```text
+ai-service/models/kidney/kidney_pipeline.joblib
+ai-service/models/kidney/metadata.json
+```
+
+The pre-existing `kidney_disease_model.pkl` and `kidney_scaler.pkl` artifacts
+are left untouched and are not used by this pipeline.
+
+For the recorded 20% stratified holdout, the selected Extra Trees pipeline
+reported accuracy `0.9875`, balanced accuracy `0.99`, CKD precision `1.00`,
+CKD recall `0.98`, CKD F1 `0.9899`, ROC-AUC `1.00`, and confusion matrix
+`[[30, 0], [1, 49]]` (label order: `notckd`, `ckd`). Five-fold stratified CV
+balanced accuracy was `0.99`. These are results on this small supplied
+dataset split only, not a clinical performance claim.
+
+## Train and evaluate
+
+From `ai-service` (after installing `requirements.txt`):
+
+```powershell
+python -m training.kidney.train
+python -m training.kidney.evaluate
+python -m unittest discover -s tests -v
+```
+
+The training command reports actual stratified holdout metrics and candidate
+cross-validation results, writes metadata, then reloads the saved artifact and
+checks prediction consistency. It does not claim clinical accuracy.
+
+## Prediction API
+
+The Express endpoint is `POST /api/ai/kidney/predict` and requires an
+authenticated customer or doctor. The FastAPI endpoint is
+`POST /predict/kidney`. `GET /api/ai/kidney/schema` (FastAPI:
+`GET /predict/kidney/schema`) returns the exact feature names, types, units,
+categories, and target labels used by the installed pipeline.
+
+All 24 fields are required. The categorical values are strings; numerical
+fields are finite, non-negative JSON numbers. For the precise categories, use
+the schema endpoint. Example request:
+
+```json
+{
+  "age": 45,
+  "bp": 80,
+  "sg": "1.020",
+  "al": "0",
+  "su": "0",
+  "rbc": "normal",
+  "pc": "normal",
+  "pcc": "notpresent",
+  "ba": "notpresent",
+  "bgr": 120,
+  "bu": 36,
+  "sc": 1.2,
+  "sod": 140,
+  "pot": 4.5,
+  "hemo": 14,
+  "pcv": 42,
+  "wbcc": 8000,
+  "rbcc": 4.8,
+  "htn": "no",
+  "dm": "no",
+  "cad": "no",
+  "appet": "good",
+  "pe": "no",
+  "ane": "no"
+}
+```
+
+The response includes the predicted class, its display label, the model's
+probability for each class, and the `ckd` class probability:
+
+```json
+{
+  "success": true,
+  "prediction": "notckd",
+  "predicted_label": "No CKD pattern detected",
+  "model_name": "extra_trees",
+  "probability": 0.0829,
+  "class_probabilities": {
+    "notckd": 0.9171,
+    "ckd": 0.0829
+  },
+  "probability_label": "Model-estimated probability for ckd",
+  "disclaimer": "This model output is a screening estimate, not a medical diagnosis. Consult a qualified healthcare professional."
+}
+```
+
+Probabilities are model outputs, not calibrated clinical certainty. The
+dataset is small, historical, and from a single source; external clinical
+validation has not been performed. The result is not a diagnosis or treatment
+recommendation. Users should consult a qualified healthcare professional.
+
+## Run the integrated feature
+
+Start FastAPI from `ai-service`:
+
+```powershell
+python -m uvicorn app:app --reload --port 8000
+```
+
+Start Express from `backend` with `AI_SERVICE_URL=http://127.0.0.1:8000` in its
+local `.env`:
+
+```powershell
+npm start
+npm test
+```
+
+Start the frontend from `vite-frontend`:
+
+```powershell
+npm run dev
+npm run build
+```
+
+After signing in as a customer or doctor, open **AI Health Analysis** and
+select **Kidney Disease Prediction**. The schema-driven form displays the
+required measurements and choices. It has no simulated or fallback result.
+
+---
+
 # 🔐 Authentication and Authorization
 
 Curely supports role-based workflows for:
