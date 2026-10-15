@@ -1,0 +1,47 @@
+{
+  "model_name": "Curely Diabetes Risk XGBoost",
+  "model_version": "diabetes-xgb-v1",
+  "features": [
+    "Pregnancies",
+    "Glucose",
+    "BloodPressure",
+    "SkinThickness",
+    "Insulin",
+    "BMI",
+    "DiabetesPedigreeFunction",
+    "Age"
+  ],
+  "target": "Outcome",
+  "zero_as_missing": [
+    "Glucose",
+    "BloodPressure",
+    "SkinThickness",
+    "Insulin",
+    "BMI"
+  ],
+  "threshold": 0.5,
+  "metrics": {
+    "dataset_rows": 768,
+    "train_rows": 537,
+    "validation_rows": 115,
+    "test_rows": 116,
+    "positive_rate": 0.3489583333333333,
+    "accuracy": 0.7413793103448276,
+    "balanced_accuracy": 0.6839024390243902,
+    "precision": 0.6896551724137931,
+    "recall": 0.4878048780487805,
+    "f1": 0.5714285714285714,
+    "roc_auc": 0.8188617886178862,
+    "confusion_matrix": [
+      [
+        66,
+        9
+      ],
+      [
+        21,
+        20
+      ]
+    ]
+  },
+  "note": "Screening model for portfolio demonstration. Not a medical diagnostic device."
+}
