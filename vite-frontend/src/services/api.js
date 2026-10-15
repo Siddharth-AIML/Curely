@@ -35,6 +35,14 @@ export const analyzeBrainMRI = (file) => {
   return API.post('/ai/brain-mri-analysis', formData);
 };
 
+export const extractDiabetesReport = (file) => {
+  const formData = new FormData();
+  formData.append('report', file);
+  return API.post('/ai/diabetes-extract', formData);
+};
+
+export const predictDiabetesRisk = (payload) => API.post('/ai/diabetes-predict', payload);
+
 // --- DOCTOR ---
 export const getDoctorProfile = () => API.get('/doctor/profile');
 export const findCustomerByMedId = (id) => API.get(`/doctor/customer/${id}`);

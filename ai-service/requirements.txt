@@ -11,3 +11,7 @@ fastapi
 uvicorn
 python-multipart
 grad-cam
+joblib
+xgboost
+opencv-python-headless
+pytesseract

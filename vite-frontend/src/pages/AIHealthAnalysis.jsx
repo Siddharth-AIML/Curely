@@ -17,8 +17,10 @@ import DoctorDashboardLayout from '../components/DoctorDashboardLayout.jsx';
 import {
     analyzeBrainMRI,
     analyzeSkinImage,
+    extractDiabetesReport,
     getCustomerProfile,
     getDoctorProfile,
+    predictDiabetesRisk,
 } from '../services/api.js';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -40,9 +42,9 @@ const AI_ANALYSES = [
     },
     {
         id: 'diabetes',
-        title: 'Diabetes Risk Prediction',
-        description: 'Coming soon',
-        available: false,
+        title: 'Diabetes Risk Assessment',
+        description: 'AI screening using glucose, BMI, age, and related clinical indicators',
+        available: true,
     },
     {
         id: 'kidney',
@@ -165,7 +167,8 @@ export default function AIHealthAnalysis() {
 
                 {selectedAnalysisId === 'skin' && <SkinAnalysisPanel />}
                 {selectedAnalysisId === 'brain' && <BrainMRIAnalysisPanel />}
-                {selectedAnalysisId !== 'skin' && selectedAnalysisId !== 'brain' && (
+                {selectedAnalysisId === 'diabetes' && <DiabetesRiskAssessmentPanel />}
+                {selectedAnalysisId !== 'skin' && selectedAnalysisId !== 'brain' && selectedAnalysisId !== 'diabetes' && (
                     <section className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm">
                         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-slate-500">
                             <Sparkles size={28} />
@@ -618,6 +621,335 @@ function BrainResultView({ result, previewUrl, onReset }) {
             >
                 <RotateCcw size={18} />
                 Analyze Another MRI
+            </button>
+        </div>
+    );
+}
+
+function DiabetesRiskAssessmentPanel() {
+    const fileInputRef = useRef(null);
+    const [reportFile, setReportFile] = useState(null);
+    const [manualMode, setManualMode] = useState(true);
+    const [extracting, setExtracting] = useState(false);
+    const [predicting, setPredicting] = useState(false);
+    const [error, setError] = useState('');
+    const [result, setResult] = useState(null);
+    const [form, setForm] = useState({
+        Pregnancies: '',
+        Glucose: '',
+        BloodPressure: '',
+        SkinThickness: '',
+        Insulin: '',
+        BMI: '',
+        DiabetesPedigreeFunction: '',
+        Age: '',
+    });
+
+    const diabetesFieldMeta = [
+        { key: 'Pregnancies', label: 'Pregnancies', type: 'number', min: 0, step: '1' },
+        { key: 'Glucose', label: 'Glucose', type: 'number', min: 0, step: '0.1' },
+        { key: 'BloodPressure', label: 'Blood Pressure', type: 'number', min: 0, step: '0.1' },
+        { key: 'SkinThickness', label: 'Skin Thickness', type: 'number', min: 0, step: '0.1' },
+        { key: 'Insulin', label: 'Insulin', type: 'number', min: 0, step: '0.1' },
+        { key: 'BMI', label: 'BMI', type: 'number', min: 0, step: '0.1' },
+        { key: 'DiabetesPedigreeFunction', label: 'Diabetes Pedigree', type: 'number', min: 0, step: '0.001' },
+        { key: 'Age', label: 'Age', type: 'number', min: 1, step: '1' },
+    ];
+
+    const handleInputChange = (field, value) => {
+        setError('');
+        setResult(null);
+        setForm((previous) => ({ ...previous, [field]: value }));
+    };
+
+    const isFormComplete = Object.entries(form).every(([field, value]) => (
+        value !== ''
+        && Number.isFinite(Number(value))
+        && Number(value) >= (field === 'Age' ? 1 : 0)
+    ));
+
+    const handleExtract = async () => {
+        if (!reportFile || extracting) return;
+
+        setExtracting(true);
+        setError('');
+
+        try {
+            const response = await extractDiabetesReport(reportFile);
+            const extracted = response.data || {};
+            const values = extracted.values || {};
+            const nextForm = { ...form };
+
+            Object.keys(nextForm).forEach((key) => {
+                if (values[key] !== undefined && values[key] !== null && values[key] !== '') {
+                    nextForm[key] = String(values[key]);
+                }
+            });
+
+            setForm(nextForm);
+            setManualMode(false);
+
+            if (Object.keys(values).length === 0) {
+                setError('No diabetes values were detected in the report. Please review and complete the form manually.');
+            }
+        } catch (requestError) {
+            const message = requestError.response?.data?.message || 'Diabetes report extraction is currently unavailable. Please try again later.';
+            setError(message);
+        } finally {
+            setExtracting(false);
+        }
+    };
+
+    const handlePredict = async () => {
+        if (!isFormComplete || predicting) return;
+
+        setPredicting(true);
+        setError('');
+
+        try {
+            const payload = {
+                pregnancies: Number(form.Pregnancies),
+                glucose: Number(form.Glucose),
+                blood_pressure: Number(form.BloodPressure),
+                skin_thickness: Number(form.SkinThickness),
+                insulin: Number(form.Insulin),
+                bmi: Number(form.BMI),
+                diabetes_pedigree_function: Number(form.DiabetesPedigreeFunction),
+                age: Number(form.Age),
+            };
+
+            const response = await predictDiabetesRisk(payload);
+            setResult({
+                ...response.data,
+                analyzedAt: new Date(),
+            });
+        } catch (requestError) {
+            const message = requestError.response?.data?.message || 'Diabetes risk assessment is currently unavailable. Please try again later.';
+            setError(message);
+        } finally {
+            setPredicting(false);
+        }
+    };
+
+    const resetAssessment = () => {
+        setReportFile(null);
+        setManualMode(true);
+        setError('');
+        setResult(null);
+        setForm({
+            Pregnancies: '',
+            Glucose: '',
+            BloodPressure: '',
+            SkinThickness: '',
+            Insulin: '',
+            BMI: '',
+            DiabetesPedigreeFunction: '',
+            Age: '',
+        });
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    return (
+        <div className="space-y-6">
+            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="flex items-center gap-3 mb-5">
+                    <ShieldCheck className="text-emerald-600" size={22} />
+                    <h2 className="text-xl font-semibold text-slate-800">Diabetes Risk Assessment</h2>
+                </div>
+
+                {!!error && (
+                    <div role="alert" className="mb-6 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                        <AlertTriangle size={20} className="mt-0.5 shrink-0" />
+                        <span>{error}</span>
+                    </div>
+                )}
+
+                {!result ? (
+                    <div className="space-y-6">
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                            <div className="flex flex-wrap gap-2 mb-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setManualMode(true)}
+                                    className={`rounded-lg px-3 py-2 text-sm font-semibold ${manualMode ? 'bg-emerald-600 text-white' : 'bg-white text-slate-700 border border-slate-300'}`}
+                                >
+                                    Manual Entry
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setManualMode(false)}
+                                    className={`rounded-lg px-3 py-2 text-sm font-semibold ${!manualMode ? 'bg-emerald-600 text-white' : 'bg-white text-slate-700 border border-slate-300'}`}
+                                >
+                                    Upload Report
+                                </button>
+                            </div>
+
+                            {!manualMode ? (
+                                <div className="space-y-4">
+                                    <p className="text-slate-600">Upload a diabetes report image for OCR-assisted extraction.</p>
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept="image/jpeg,image/png,image/webp"
+                                        className="sr-only"
+                                        onChange={(event) => setReportFile(event.target.files?.[0] || null)}
+                                    />
+
+                                    {reportFile ? (
+                                        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3">
+                                            <div>
+                                                <p className="font-medium text-slate-800 break-words">{reportFile.name}</p>
+                                                <p className="text-sm text-slate-500">{(reportFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                    className="px-3 py-2 rounded-lg border border-slate-300 text-slate-700 font-semibold hover:bg-slate-50"
+                                                >
+                                                    Change Report
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleExtract}
+                                                    disabled={extracting}
+                                                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 text-white font-semibold disabled:opacity-60"
+                                                >
+                                                    {extracting ? <Loader2 size={16} className="animate-spin" /> : <ScanSearch size={16} />}
+                                                    {extracting ? 'Extracting values...' : 'Extract Values'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className="w-full min-h-28 border-2 border-dashed border-slate-300 rounded-xl bg-white hover:bg-emerald-50 hover:border-emerald-400 transition-colors flex flex-col items-center justify-center px-6"
+                                        >
+                                            <Upload size={28} className="text-slate-400 mb-2" />
+                                            <span className="font-semibold text-slate-700">Upload Diabetes Report</span>
+                                            <span className="text-sm text-slate-500 mt-1">JPG, JPEG, PNG or WEBP, up to 10 MB</span>
+                                        </button>
+                                    )}
+                                </div>
+                            ) : (
+                                <p className="text-slate-600">Enter each diabetes screening value manually. Review the data before submitting to the model.</p>
+                            )}
+                        </div>
+
+                        <div className="rounded-xl border border-slate-200 bg-white p-4">
+                            <div className="mb-4 flex items-center justify-between">
+                                <h3 className="text-lg font-semibold text-slate-800">Review values</h3>
+                                <span className="text-sm text-slate-500">{Object.values(form).filter((value) => value !== '').length}/8 fields</span>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                {diabetesFieldMeta.map((field) => (
+                                    <label key={field.key} className="block">
+                                        <span className="mb-2 block text-sm font-medium text-slate-700">{field.label}</span>
+                                        <input
+                                            type={field.type}
+                                            min={field.min}
+                                            max={field.max}
+                                            step={field.step}
+                                            value={form[field.key]}
+                                            onChange={(event) => handleInputChange(field.key, event.target.value)}
+                                            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-slate-800 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                                            placeholder={field.label}
+                                        />
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-3">
+                            <button
+                                type="button"
+                                onClick={handlePredict}
+                                disabled={!isFormComplete || predicting}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white font-semibold shadow-md hover:bg-emerald-700 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            >
+                                {predicting ? <Loader2 size={18} className="animate-spin" /> : <ShieldCheck size={18} />}
+                                {predicting ? 'Assessing risk...' : 'Assess Diabetes Risk'}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={resetAssessment}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 text-slate-700 font-semibold hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            >
+                                <RotateCcw size={18} />
+                                Reset
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <DiabetesResultView result={result} onReset={resetAssessment} />
+                )}
+            </section>
+        </div>
+    );
+}
+
+function DiabetesResultView({ result, onReset }) {
+    const riskPercent = typeof result.risk_percent === 'number' ? result.risk_percent : Number(result.risk_probability || 0) * 100;
+    const categoryLabel = result.risk_category ? result.risk_category.toUpperCase() : 'UNKNOWN';
+
+    return (
+        <div className="space-y-6">
+            <section className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                        <p className="text-sm font-semibold uppercase tracking-wide text-emerald-600">AI Screening Result</p>
+                        <h2 className="mt-1 text-3xl font-bold text-slate-800">{categoryLabel} RISK</h2>
+                    </div>
+                    <CheckCircle2 className="text-emerald-600" size={28} />
+                </div>
+
+                <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <Metric label="Risk probability" value={`${riskPercent.toFixed(2)}%`} />
+                    <Metric label="Category" value={result.risk_category || 'Unavailable'} />
+                    <Metric label="Model" value={result.model_version || 'diabetes-xgb-v1'} />
+                </div>
+            </section>
+
+            <section className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                <h2 className="text-lg font-semibold text-slate-800 mb-4">Top contributing factors</h2>
+                <div className="space-y-4">
+                    {(result.top_factors || []).map((factor, index) => (
+                        <div key={`${factor.feature}-${index}`} className="rounded-xl border border-slate-200 p-4">
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <p className="font-medium text-slate-800">{factor.label}</p>
+                                    <p className="text-sm text-slate-500">Value: {Number(factor.value).toFixed(2)}</p>
+                                </div>
+                                <span className={`rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wide ${factor.direction === 'increases_risk' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                    {factor.direction === 'increases_risk' ? 'Raises risk' : 'Lowers risk'}
+                                </span>
+                            </div>
+                            <div className="mt-3 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                <div
+                                    className={`h-full rounded-full ${factor.direction === 'increases_risk' ? 'bg-rose-500' : 'bg-emerald-500'}`}
+                                    style={{ width: `${Math.min(100, Math.max(8, (Math.abs(Number(factor.impact || 0)) * 100))) }%` }}
+                                />
+                            </div>
+                            <p className="mt-2 text-xs text-slate-500">SHAP impact: {Number(factor.impact || 0).toFixed(5)}</p>
+                        </div>
+                    ))}
+                </div>
+            </section>
+
+            <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                <ShieldCheck size={20} className="mt-0.5 shrink-0" />
+                <p>{result.disclaimer || 'This is an AI screening estimate for portfolio demonstration and is not a medical diagnosis.'}</p>
+            </div>
+
+            <button
+                type="button"
+                onClick={onReset}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 text-slate-700 font-semibold hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            >
+                <RotateCcw size={18} />
+                Run Another Assessment
             </button>
         </div>
     );

@@ -4,17 +4,32 @@ from pathlib import Path
 import shutil
 import uuid
 
+from pydantic import BaseModel, Field
+
 try:
     from services.skin_gradcam import predict_with_gradcam
 except ModuleNotFoundError:
     predict_with_gradcam = None
 
 from services.brain_predictor import predict_brain_mri
+from services.diabetes_predictor import get_diabetes_predictor
+from services.diabetes_report_extractor import extract_diabetes_report
 
 app = FastAPI(
     title="Curely AI Service",
     version="1.0.0"
 )
+
+
+class DiabetesInput(BaseModel):
+    pregnancies: float = Field(ge=0)
+    glucose: float = Field(ge=0)
+    blood_pressure: float = Field(ge=0)
+    skin_thickness: float = Field(ge=0)
+    insulin: float = Field(ge=0)
+    bmi: float = Field(ge=0)
+    diabetes_pedigree_function: float = Field(ge=0)
+    age: float = Field(ge=1)
 
 # Directories
 RESULTS_DIR = Path("results")
@@ -135,3 +150,46 @@ async def predict_brain_mri_endpoint(file: UploadFile = File(...)):
             status_code=500,
             detail=f"Brain MRI analysis failed: {str(exc)}"
         )
+
+
+@app.post("/extract/diabetes-report")
+async def extract_diabetes_report_endpoint(file: UploadFile = File(...)):
+    allowed_types = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
+
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=400,
+            detail="Please upload a valid report image for diabetes extraction."
+        )
+
+    file_id = str(uuid.uuid4())
+    extension = Path(file.filename).suffix.lower()
+    if extension not in [".jpg", ".jpeg", ".png", ".webp"]:
+        extension = ".png"
+
+    input_path = UPLOADS_DIR / f"{file_id}{extension}"
+    with open(input_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    try:
+        return extract_diabetes_report(str(input_path))
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Diabetes report extraction failed: {str(exc)}"
+        )
+
+
+@app.post("/predict/diabetes")
+def predict_diabetes(payload: DiabetesInput):
+    predictor = get_diabetes_predictor()
+    return predictor.predict({
+        "Pregnancies": payload.pregnancies,
+        "Glucose": payload.glucose,
+        "BloodPressure": payload.blood_pressure,
+        "SkinThickness": payload.skin_thickness,
+        "Insulin": payload.insulin,
+        "BMI": payload.bmi,
+        "DiabetesPedigreeFunction": payload.diabetes_pedigree_function,
+        "Age": payload.age,
+    })
